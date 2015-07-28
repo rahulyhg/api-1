@@ -22,6 +22,7 @@ $app->post('/wines', 'addWine');
 $app->put('/wines/:id', 'updateWine');
 $app->delete('/wines/:id',	'deleteWine');
 */
+
 $app->run();
 
 function register($imei){
@@ -46,7 +47,7 @@ function getDashboards(){
     $dbPrefix = $_SESSION['DB_PREFIX'];
     $dbPrefix_curr = $_SESSION['DB_PREFIX_CURR'];
     $dbPrefix_last = $_SESSION['DB_PREFIX_LAST'];
-//    $sraid = $_SESSION['userid']; this is a comment
+//    $sraid = $_SESSION['userid']; this is a comment - Another comment
 	$sraid = 137;
 
 	$sql = "SELECT * FROM (
