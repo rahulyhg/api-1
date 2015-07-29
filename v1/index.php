@@ -9,36 +9,31 @@ $app->get('/register/imei', 'register');
 $app->get('/staticdata', 'getStaticData');
 $app->get('/deals/:page', 'getDeals');
 $app->get('/dashboards', 'getDashboards');
-
 $app->get('/dashboard/:id/:month', 'getDashboard');
-
-/*
-$app->get('/employee/imei/:id', 'getEmployeeIMEI');
-$app->get('/deal/:id', 'getDeal');
-$app->get('/wines', 'getWines');
-$app->get('/wines/:id',	'getWine');
-$app->get('/wines/search/:query', 'findByName');
-$app->post('/wines', 'addWine');
-$app->put('/wines/:id', 'updateWine');
-$app->delete('/wines/:id',	'deleteWine');
-*/
 
 $app->run();
 
 function register($imei){
-
 }
 
 function getStaticData(){
-
 }
 
 function getDeals($page) {
     $dbPrefix = $_SESSION['DB_PREFIX'];
     $dbPrefix_curr = $_SESSION['DB_PREFIX_CURR'];
+    $dbPrefix_last = $_SESSION['DB_PREFIX_LAST'];
 
-	$sql = "select sql_calc_found_rows dealid, dealid, dealno, dealnm, dd as assigned_on, rgid as bucket, emi, dueamt FROM ".$dbPrefix_curr.".tbxfieldrcvry where mm = 6 and sraid = 137 ORDER BY dd desc limit 0,20";
+	$sql = "select sql_calc_found_rows fr.dealid, fr.dealid, fr.dealno, tcase(fr.dealnm) as deal_name,tcase(d.centre) as centre, tcase(fr.area) as area, tcase(fr.city) as city, tcase(fr.address) as address, fr.mobile, fr.dueamt as due_amt, fr.dd as assigned_on, null as followup_dt, fr.rgid as bucket, tcase(dg.GrtrNm) as guarantor_name, tcase(concat(dg.add1, ' ', dg.add2, ' ', dg.area, ' ', dg.tahasil, ' ', dg.city)) as guarantor_address, fr.GuarantorMobile as guarantor_mobile,round(d.financeamt) as finance_amt,fr.emi,d.period as tenure,DATE_FORMAT(d.hpexpdt, '%d-%m-%Y') as expiry_dt, DATE_FORMAT(d.startduedt, '%d')as emi_day,null as type, concat(dv.make, ' ', dv.model) as vehicle_model, dv.VhclColour as vehicle_color, dv.Chasis as vehicle_chasis_no, dv.EngineNo as vehicle_engine_no, dv.RTORegNo as rto_reg_no, b.BrkrNm as dealer, concat(b.add1, ' ', b.add2, ' ', b.area, ' ', b.tahasil, ' ', b.city) as showroom, fr.SalesmanId as salesman_id, fr.callerid as caller_empid, fr.sraid as sra_empid
+	FROM ".$dbPrefix_curr.".tbxfieldrcvry fr
+	join ".$dbPrefix.".tbmdealguarantors dg
+	join ".$dbPrefix.".tbmdeal d
+	join ".$dbPrefix.".tbmdealvehicle dv
+	join ".$dbPrefix.".tbmbroker b
+	on fr.dealid = dg.dealid and fr.dealid = d.dealid and fr.dealid=dv.dealid and d.brkrid = b.brkrid where fr.mm = 6 and fr.sraid = 137
+	ORDER BY fr.dd desc limit 0, 20";
 
+	//$sql = "SELECT * FROM ".$dbPrefix.".tbmdealchrgs WHERE DealId=100248396 AND DcTyp NOT IN (101,102,111) AND ChrgsApplied > ChrgsRcvd GROUP BY Dctyp";
 	$deals = executeSelect($sql);
 	echo '{"deals": ' . json_encode($deals) . '}';
 }
@@ -78,7 +73,7 @@ function getEmployeeIMEI($id){
 	}
 */
 }
-
+/*
 function getDashboard($id, $month) {
 	$sql = "SELECT t1.centre,  t1.sraid as emp_id, t1.sranm as emp_name, t1.sraactive as emp_active, '09972722800' as emp_phone, 'http://r.loksuvidha.com:81/pics/photo.jpg' as emp_pic,
 SUM(a1) AS a1, SUM(r1) AS r1, SUM(b1) AS b1, SUM(a2) AS a2, SUM(r2) AS r2, SUM(b2) AS b2, SUM(a3) AS a3, SUM(r3) AS r3, SUM(b3) AS b3, SUM(a4) AS a4, SUM(r4) AS r4, SUM(b4) AS b4, SUM(a5) AS a5, SUM(r5) AS r5, SUM(b5) AS b5, SUM(a6) AS a6, SUM(r6) AS r6, SUM(b6) AS b6,
@@ -127,7 +122,7 @@ LEFT JOIN (
 	}
 }
 
-
+*/
 function getDeal($id) {
 	$sql = "select dealid, dealno, dealnm, hpdt, dd as assigned_on, rgid as bucket, EMI, DueAmt, city, area, centre FROM lksa201516.tbxfieldrcvry where mm = 6 and dealid = :id";
 	try {
@@ -143,111 +138,4 @@ function getDeal($id) {
 		error_log("From API Index.php: ".$e->getMessage());
 	}
 }
-
-function getWines() {
-	$sql = "select * FROM wine ORDER BY name";
-	try {
-		$db = getConnection();
-		$stmt = $db->query($sql);
-		$wines = $stmt->fetchAll(PDO::FETCH_OBJ);
-		$db = null;
-		echo '{"wine": ' . json_encode($wines) . '}';
-	} catch(PDOException $e) {
-		echo '{"error":{"text":'. $e->getMessage() .'}}';
-		error_log("From API Index.php: ".$e->getMessage());
-	}
-}
-
-function getWine($id) {
-	$sql = "SELECT * FROM wine WHERE id=:id";
-	try {
-		$db = getConnection();
-		$stmt = $db->prepare($sql);
-		$stmt->bindParam("id", $id);
-		$stmt->execute();
-		$wine = $stmt->fetchObject();
-		$db = null;
-		echo json_encode($wine);
-	} catch(PDOException $e) {
-		echo '{"error":{"text":'. $e->getMessage() .'}}';
-	}
-}
-
-function addWine() {
-	error_log('addWine\n', 3, '/var/tmp/php.log');
-	$request = Slim::getInstance()->request();
-	$wine = json_decode($request->getBody());
-	$sql = "INSERT INTO wine (name, grapes, country, region, year, description) VALUES (:name, :grapes, :country, :region, :year, :description)";
-	try {
-		$db = getConnection();
-		$stmt = $db->prepare($sql);
-		$stmt->bindParam("name", $wine->name);
-		$stmt->bindParam("grapes", $wine->grapes);
-		$stmt->bindParam("country", $wine->country);
-		$stmt->bindParam("region", $wine->region);
-		$stmt->bindParam("year", $wine->year);
-		$stmt->bindParam("description", $wine->description);
-		$stmt->execute();
-		$wine->id = $db->lastInsertId();
-		$db = null;
-		echo json_encode($wine);
-	} catch(PDOException $e) {
-		error_log($e->getMessage(), 3, '/var/tmp/php.log');
-		echo '{"error":{"text":'. $e->getMessage() .'}}';
-	}
-}
-
-function updateWine($id) {
-	$request = Slim::getInstance()->request();
-	$body = $request->getBody();
-	$wine = json_decode($body);
-	$sql = "UPDATE wine SET name=:name, grapes=:grapes, country=:country, region=:region, year=:year, description=:description WHERE id=:id";
-	try {
-		$db = getConnection();
-		$stmt = $db->prepare($sql);
-		$stmt->bindParam("name", $wine->name);
-		$stmt->bindParam("grapes", $wine->grapes);
-		$stmt->bindParam("country", $wine->country);
-		$stmt->bindParam("region", $wine->region);
-		$stmt->bindParam("year", $wine->year);
-		$stmt->bindParam("description", $wine->description);
-		$stmt->bindParam("id", $id);
-		$stmt->execute();
-		$db = null;
-		echo json_encode($wine);
-	} catch(PDOException $e) {
-		echo '{"error":{"text":'. $e->getMessage() .'}}';
-	}
-}
-
-function deleteWine($id) {
-	$sql = "DELETE FROM wine WHERE id=:id";
-	try {
-		$db = getConnection();
-		$stmt = $db->prepare($sql);
-		$stmt->bindParam("id", $id);
-		$stmt->execute();
-		$db = null;
-	} catch(PDOException $e) {
-		echo '{"error":{"text":'. $e->getMessage() .'}}';
-	}
-}
-
-function findByName($query) {
-	$sql = "SELECT * FROM wine WHERE UPPER(name) LIKE :query ORDER BY name";
-	try {
-		$db = getConnection();
-		$stmt = $db->prepare($sql);
-		$query = "%".$query."%";
-		$stmt->bindParam("query", $query);
-		$stmt->execute();
-		$wines = $stmt->fetchAll(PDO::FETCH_OBJ);
-		$db = null;
-		echo '{"wine": ' . json_encode($wines) . '}';
-	} catch(PDOException $e) {
-		echo '{"error":{"text":'. $e->getMessage() .'}}';
-	}
-}
-
-
 ?>
