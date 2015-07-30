@@ -28,7 +28,7 @@ function getDeals($page) {
 
 	$sraid = 137;
 
-	$sql = "select sql_calc_found_rows fr.dealid, fr.dealid, fr.dealno, tcase(fr.dealnm) as name,tcase(d.centre) as centre, tcase(fr.area) as area, tcase(fr.city) as city, tcase(fr.address) as address, fr.mobile, DATE_FORMAT(fr.hpdt, '%d-%m-%Y') as hpdt, fr.dueamt as due_amt, fr.dd as assigned_on, null as followup_dt, fr.rgid as bucket, round(d.financeamt) as finance_amt,fr.emi,d.period as tenure,DATE_FORMAT(d.hpexpdt, '%d-%m-%Y') as expiry_dt, DATE_FORMAT(d.startduedt, '%d') as emi_day, 'ECS' as type, tcase(concat(dv.make, ' ', dv.model)) as vehicle_model, dv.VhclColour as vehicle_color, dv.Chasis as vehicle_chasis_no, dv.EngineNo as vehicle_engine_no, dv.RTORegNo as rto_reg_no, tcase(b.BrkrNm) as dealer, tcase(trim(concat(ifnull(b.city,''), ' ', case when b.centre != b.city then b.centre else '' end))) as showroom, fr.SalesmanId as salesman_id, fr.callerid as caller_empid, fr.sraid as sra_empid
+	$sql = "select sql_calc_found_rows fr.dealid, fr.dealid, fr.dealno, tcase(fr.dealnm) as name,tcase(d.centre) as centre, tcase(fr.area) as area, tcase(fr.city) as city, tcase(fr.address) as address, fr.mobile, DATE_FORMAT(fr.hpdt, '%d-%m-%Y') as hpdt, fr.dueamt as total_due,fr.OdDueAmt as overdue, fr.dd as assigned_on, DATE_FORMAT(fr.CallerFollowupDt,'%d-%m-%Y') as caller_followup_dt,DATE_FORMAT(fr.SRAFollowupDt,'%d-%m-%Y') as sra_followup_dt, fr.rgid as bucket,round(d.financeamt) as finance_amt,fr.emi,d.period as tenure,DATE_FORMAT(d.hpexpdt, '%d-%m-%Y') as expiry_dt, DATE_FORMAT(d.startduedt, '%d') as emi_day, (case when d.paytype=1 then 'PDC' when d.paytype=2 then 'ECS' when d.paytype=3 then 'Direct Debit' end) as type, tcase(concat(dv.make, ' ', dv.model)) as vehicle_model, dv.VhclColour as vehicle_color, dv.Chasis as vehicle_chasis_no, dv.EngineNo as vehicle_engine_no, dv.RTORegNo as rto_reg_no, tcase(b.BrkrNm) as dealer, tcase(trim(concat(ifnull(b.city,''), ' ', case when b.centre != b.city then b.centre else '' end))) as showroom, fr.SalesmanId as salesman_id
 	FROM ".$dbPrefix_curr.".tbxfieldrcvry fr
 	join ".$dbPrefix.".tbmdeal d
 	join ".$dbPrefix.".tbmdealvehicle dv
@@ -36,10 +36,8 @@ function getDeals($page) {
 	on fr.dealid = d.dealid and fr.dealid=dv.dealid and d.brkrid = b.brkrid where fr.mm = ".date('n')." and fr.sraid = $sraid
 	ORDER BY fr.dd desc limit $start, $limit";
 
-//	$sql = "tcase(dg.GrtrNm) as guarantor_name, tcase(concat(dg.add1, ' ', dg.add2, ' ', dg.area, ' ', dg.tahasil, ' ', dg.city)) as guarantor_address, fr.GuarantorMobile as guarantor_mobile,";
-
-	//$sql = "SELECT * FROM ".$dbPrefix.".tbmdealchrgs WHERE DealId=100248396 AND DcTyp NOT IN (101,102,111) AND ChrgsApplied > ChrgsRcvd GROUP BY Dctyp";
 	$deals = executeSelect($sql);
+
 	foreach($deals['result'] as $i=> $deal){
 		$dealid = $deal['dealid'];
 
@@ -73,13 +71,52 @@ function getDeals($page) {
 			SELECT 2 AS source, DATE, NULL as dDate, NULL AS Due, NULL AS DueAmt, NULL AS eligible, DATE_FORMAT(Date, '%d-%b-%Y') as rDate, Received, rcptid, mode, CBFlg, CBCCLFlg, CCLflg, cbdt, ccldt, cbrsn, sranm, Remarks, (EMI+CC) as rEMI, Penalty, (Clearing + CB + Seizing + Other) as Others, reconind FROM ($q2) as t2
 		) t order by Date, source";
 
-//		$deals['result'][$i]['sql'] = $sql;
 		$ledger = executeSelect($sql);
-		$deals['result'][$i]['ledger'] = format_ledger($ledger);
 
+	    $sql_guarantor = "select tcase(GrtrNm) as guarantor_name, tcase(concat(add1, ' ', add2, ' ', area, ' ', tahasil, ' ', city)) as 		        guarantor_address, mobile as guarantor_mobile from ".$dbPrefix.".tbmdealguarantors where DealId=$dealid";
+		$guarantor = executeSelect($sql_guarantor);
+
+		$sql_assignment = "select mm as month,CallerId as caller_id,SRAId as sra_id from ".$dbPrefix_curr.".tbxfieldrcvry where DealId=$dealid";
+		$assignment = executeSelect($sql_assignment);
+
+		$sql_otherphone = "select tel1 as self_no1,tel2 as self_no2 from ".$dbPrefix.".tbmdeal where DealId=$dealid";
+		$otherphone = executeSelect($sql_otherphone);
+
+        $sql_logs = "SELECT t.dt, t.type,u.realname AS caller, b.brkrnm AS sranm, date_format(t.followupdt,'%d-%b') as followupdt, t.remark FROM(
+        SELECT dealid, followupdate AS dt,'FIRSTCALL' AS `type`,  NULL AS callerid, Remark AS remark, NULL AS followupdt, NULL AS sraid FROM $dbPrefix_curr.tbxdealduedatefollowuplog WHERE dealid = $dealid
+        UNION
+        SELECT dealid, followupdate AS dt, 'CALLER' AS `type`, webuserid AS callerid, FollowupRemark AS remark, NxtFollowupDate AS followupdt, NULL AS sraid FROM $dbPrefix_curr.tbxdealfollowuplog WHERE dealid = $dealid
+		UNION
+		SELECT dealid, followupdate AS dt, 'INTERNAL' AS `type`,  webuserid AS callerid, FollowupRemark AS remark, NULL AS followupdt, sraid FROM $dbPrefix_curr.tbxsrafollowuplog WHERE dealid = $dealid
+		) t
+		LEFT JOIN ob_sa.tbmuser u ON t.callerid = u.userid
+		LEFT JOIN lksa.tbmbroker b ON t.sraid = b.brkrid AND b.brkrtyp = 2
+		ORDER BY dt DESC";
+        $logs = executeSelect($sql_logs);
+
+        $sql_dealcharges = "SELECT dctyp as dctype,(ChrgsApplied-ChrgsRcvd) as amount FROM ".$dbPrefix.".tbmdealchrgs WHERE DealId=$dealid AND DcTyp NOT IN (101,102,111) AND ChrgsApplied > ChrgsRcvd GROUP BY Dctyp";
+
+        $dealcharges = executeSelect($sql_dealcharges);
+
+        $sql_bounce = "select concat(count(case when status=-1 then 1 end),'/',count(depositdt)) as bounced from ".$dbPrefix.".tbmpaytypedtl where active=2 and depositdt IS NOT NULL and dealid = $dealid";
+        $bounce = executeSelect($sql_bounce);
+
+        $sql_seized = "select count(dealid)as seized from ".$dbPrefix_curr.".tbxvhclsz where dealid=$dealid";
+        $seized = executeSelect($sql_seized);
+
+   		$deals['result'][$i]['guarantor'] = $guarantor;
+		$deals['result'][$i]['dealcharges'] = $dealcharges;
+    	$deals['result'][$i]['bounce'] = $bounce;
+		$deals['result'][$i]['seized'] = $seized;
+		$deals['result'][$i]['phonenumbers'] = $otherphone;
+		$deals['result'][$i]['assignment'] = $assignment;
+		$deals['result'][$i]['ledger'] = format_ledger($ledger);
+		$deals['result'][$i]['logs'] = $logs;
 	}
+
 	echo '{"deals": ' . json_encode($deals) . '}';
 }
+
 
 function getDashboards(){
     $dbPrefix = $_SESSION['DB_PREFIX'];
