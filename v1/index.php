@@ -23,18 +23,61 @@ function getDeals($page) {
     $dbPrefix = $_SESSION['DB_PREFIX'];
     $dbPrefix_curr = $_SESSION['DB_PREFIX_CURR'];
     $dbPrefix_last = $_SESSION['DB_PREFIX_LAST'];
+	$limit = $_SESSION['API_ROW_LIMIT'];
+	$start = ($page-1) * $limit;
 
-	$sql = "select sql_calc_found_rows fr.dealid, fr.dealid, fr.dealno, tcase(fr.dealnm) as deal_name,tcase(d.centre) as centre, tcase(fr.area) as area, tcase(fr.city) as city, tcase(fr.address) as address, fr.mobile, fr.dueamt as due_amt, fr.dd as assigned_on, null as followup_dt, fr.rgid as bucket, tcase(dg.GrtrNm) as guarantor_name, tcase(concat(dg.add1, ' ', dg.add2, ' ', dg.area, ' ', dg.tahasil, ' ', dg.city)) as guarantor_address, fr.GuarantorMobile as guarantor_mobile,round(d.financeamt) as finance_amt,fr.emi,d.period as tenure,DATE_FORMAT(d.hpexpdt, '%d-%m-%Y') as expiry_dt, DATE_FORMAT(d.startduedt, '%d')as emi_day,null as type, concat(dv.make, ' ', dv.model) as vehicle_model, dv.VhclColour as vehicle_color, dv.Chasis as vehicle_chasis_no, dv.EngineNo as vehicle_engine_no, dv.RTORegNo as rto_reg_no, b.BrkrNm as dealer, concat(b.add1, ' ', b.add2, ' ', b.area, ' ', b.tahasil, ' ', b.city) as showroom, fr.SalesmanId as salesman_id, fr.callerid as caller_empid, fr.sraid as sra_empid
+	$sraid = 137;
+
+	$sql = "select sql_calc_found_rows fr.dealid, fr.dealid, fr.dealno, tcase(fr.dealnm) as name,tcase(d.centre) as centre, tcase(fr.area) as area, tcase(fr.city) as city, tcase(fr.address) as address, fr.mobile, DATE_FORMAT(fr.hpdt, '%d-%m-%Y') as hpdt, fr.dueamt as due_amt, fr.dd as assigned_on, null as followup_dt, fr.rgid as bucket, round(d.financeamt) as finance_amt,fr.emi,d.period as tenure,DATE_FORMAT(d.hpexpdt, '%d-%m-%Y') as expiry_dt, DATE_FORMAT(d.startduedt, '%d') as emi_day, 'ECS' as type, tcase(concat(dv.make, ' ', dv.model)) as vehicle_model, dv.VhclColour as vehicle_color, dv.Chasis as vehicle_chasis_no, dv.EngineNo as vehicle_engine_no, dv.RTORegNo as rto_reg_no, tcase(b.BrkrNm) as dealer, tcase(trim(concat(ifnull(b.city,''), ' ', case when b.centre != b.city then b.centre else '' end))) as showroom, fr.SalesmanId as salesman_id, fr.callerid as caller_empid, fr.sraid as sra_empid
 	FROM ".$dbPrefix_curr.".tbxfieldrcvry fr
-	join ".$dbPrefix.".tbmdealguarantors dg
 	join ".$dbPrefix.".tbmdeal d
 	join ".$dbPrefix.".tbmdealvehicle dv
 	join ".$dbPrefix.".tbmbroker b
-	on fr.dealid = dg.dealid and fr.dealid = d.dealid and fr.dealid=dv.dealid and d.brkrid = b.brkrid where fr.mm = 6 and fr.sraid = 137
-	ORDER BY fr.dd desc limit 0, 20";
+	on fr.dealid = d.dealid and fr.dealid=dv.dealid and d.brkrid = b.brkrid where fr.mm = ".date('n')." and fr.sraid = $sraid
+	ORDER BY fr.dd desc limit $start, $limit";
+
+//	$sql = "tcase(dg.GrtrNm) as guarantor_name, tcase(concat(dg.add1, ' ', dg.add2, ' ', dg.area, ' ', dg.tahasil, ' ', dg.city)) as guarantor_address, fr.GuarantorMobile as guarantor_mobile,";
 
 	//$sql = "SELECT * FROM ".$dbPrefix.".tbmdealchrgs WHERE DealId=100248396 AND DcTyp NOT IN (101,102,111) AND ChrgsApplied > ChrgsRcvd GROUP BY Dctyp";
 	$deals = executeSelect($sql);
+	foreach($deals['result'] as $i=> $deal){
+		$dealid = $deal['dealid'];
+
+		$q1 = "SELECT DueDt as Date, round(DueAmt) as Due, round(CollectionChrgs) as CC, round(DueAmt+CollectionChrgs) as Total, (case WHEN Duedt <= curdate() THEN 1 ELSE 0 END) as eligible  FROM ".$dbPrefix.".tbmduelist where dealid = $dealid order by Year(DueDt), Month(DueDt)";
+
+		$q2 = "";
+		$hp_mm = date("n", strtotime($deal['hpdt']));
+		$hp_yy= date("Y", strtotime($deal['hpdt']));
+		$startyy = ($hp_mm < 4 ? ($hp_yy-1) : $hp_yy);
+
+		for ($d = $startyy; $d <= date('Y'); $d++){
+			$db = "lksa".$d."".str_pad($d+1-2000, 2, '0', STR_PAD_LEFT);
+			$q2 .="
+			SELECT t1.sraid, b.brkrnm as sranm, t1.rcptdt as Date, round(sum(t2.rcptamt)) as Received, t1.rcptid, t1.rcptpaymode as mode, t1.CBFlg, t1.CBCCLFlg, t1.CCLflg, DATE_FORMAT(t1.cbdt, '%d-%b-%y') as cbdt, DATE_FORMAT(t1.ccldt, '%d-%b-%y') as  ccldt, t1.rmrk as Remarks, t1.cbrsn,
+		sum(case when dctyp = 101 then round(t2.rcptamt) ELSE 0 END) as EMI,
+		sum(case when dctyp = 102 then round(t2.rcptamt) ELSE 0 END) as Clearing, sum(case when dctyp = 103 then round(t2.rcptamt) ELSE 0 END) as CB,
+		sum(case when dctyp = 104 then round(t2.rcptamt) ELSE 0 END) as Penalty, sum(case when dctyp = 105 then round(t2.rcptamt) ELSE 0 END) as Seizing,
+		sum(case when dctyp = 107 then round(t2.rcptamt) ELSE 0 END) as Other, sum(case when dctyp = 111 then round(t2.rcptamt) ELSE 0 END) as CC
+		, v.reconind
+		FROM ".$db.".tbxdealrcpt t1 join ".$db.".tbxdealrcptdtl t2 on t1.rcptid = t2.rcptid and t1.dealid = $dealid
+		LEFT JOIN ".$db.".tbxacvoucher v on v.xrefid = t1.rcptid and v.rcptno = t1.rcptno and xreftyp = 1100 and acvchtyp = 4 and acxnsrno = 0
+		left join lksa.tbmbroker b on t1.sraid = b.brkrid group by t1.rcptid
+		UNION";
+		}
+
+		$q2 = rtrim($q2, "UNION");
+
+		$sql = "select * from (
+			SELECT 1 AS source, Date, DATE_FORMAT(Date, '%d-%b-%Y') as dDate, Due, Total as DueAmt, eligible, NULL as rDate, NULL AS Received, NULL AS rcptid, NULL as mode, NULL AS CBFlg, NULL AS CBCCLFlg, NULL AS CCLflg, NULL AS cbdt, NULL AS ccldt,  NULL as cbrsn, NULL as sranm, NULL AS Remarks, NULL AS rEMI, NULL AS Penalty, NULL AS Others, NULL as reconind FROM ($q1) as t1
+		UNION
+			SELECT 2 AS source, DATE, NULL as dDate, NULL AS Due, NULL AS DueAmt, NULL AS eligible, DATE_FORMAT(Date, '%d-%b-%Y') as rDate, Received, rcptid, mode, CBFlg, CBCCLFlg, CCLflg, cbdt, ccldt, cbrsn, sranm, Remarks, (EMI+CC) as rEMI, Penalty, (Clearing + CB + Seizing + Other) as Others, reconind FROM ($q2) as t2
+		) t order by Date, source";
+
+//		$deals['result'][$i]['sql'] = $sql;
+		$ledger = executeSelect($sql);
+		$deals['result'][$i]['ledger'] = format_ledger($ledger);
+
+	}
 	echo '{"deals": ' . json_encode($deals) . '}';
 }
 
@@ -55,8 +98,6 @@ function getDashboards(){
 	echo '{"dashboards": ' . json_encode($dashboard) . '}';
 }
 
-
-
 function getEmployeeIMEI($id){
 /*	$sql = "select * FROM lksa201516.tbxfieldrcvry where mm = 6 and dealid = :id";
 	try {
@@ -73,56 +114,6 @@ function getEmployeeIMEI($id){
 	}
 */
 }
-/*
-function getDashboard($id, $month) {
-	$sql = "SELECT t1.centre,  t1.sraid as emp_id, t1.sranm as emp_name, t1.sraactive as emp_active, '09972722800' as emp_phone, 'http://r.loksuvidha.com:81/pics/photo.jpg' as emp_pic,
-SUM(a1) AS a1, SUM(r1) AS r1, SUM(b1) AS b1, SUM(a2) AS a2, SUM(r2) AS r2, SUM(b2) AS b2, SUM(a3) AS a3, SUM(r3) AS r3, SUM(b3) AS b3, SUM(a4) AS a4, SUM(r4) AS r4, SUM(b4) AS b4, SUM(a5) AS a5, SUM(r5) AS r5, SUM(b5) AS b5, SUM(a6) AS a6, SUM(r6) AS r6, SUM(b6) AS b6,
-SUM(assigned_fd) AS assigned_fd,
-SUM(recovered_fd) AS recovered_fd,
-SUM(assigned_dm) AS assigned_dm,
-SUM(recovered_dm) AS recovered_dm,
-COUNT(dealid) AS tot_due,
-SUM(recovered) AS tot_recovered
-FROM (
-SELECT d.inserttimestamp, d.dealid, d.OdDueAmt, d.dd, t.dealid AS rdid, t.rcptamt, d.OdDueAmt - t.rcptamt AS balance,
-CASE WHEN d.dd = 1 THEN 1 ELSE 0 END AS assigned_fd,
-CASE WHEN d.dd = 1 AND t.dealid IS NOT NULL THEN 1 ELSE 0 END AS recovered_fd,
-CASE WHEN d.dd != 1 THEN 1 ELSE 0 END AS assigned_dm,
-CASE WHEN d.dd != 1 AND t.dealid IS NOT NULL THEN 1 ELSE 0 END AS recovered_dm,  CASE WHEN d.rgid = 1 THEN 1 ELSE 0 END AS a1 , CASE WHEN t.dealid IS Not NULL AND d.rgid = 1 THEN 1 ELSE 0 END AS r1 , CASE WHEN t.dealid IS NULL AND d.rgid = 1 THEN 1 ELSE 0 END AS b1 , CASE WHEN d.rgid = 2 THEN 1 ELSE 0 END AS a2 , CASE WHEN t.dealid IS Not NULL AND d.rgid = 2 THEN 1 ELSE 0 END AS r2 , CASE WHEN t.dealid IS NULL AND d.rgid = 2 THEN 1 ELSE 0 END AS b2 , CASE WHEN d.rgid = 3 THEN 1 ELSE 0 END AS a3 , CASE WHEN t.dealid IS Not NULL AND d.rgid = 3 THEN 1 ELSE 0 END AS r3 , CASE WHEN t.dealid IS NULL AND d.rgid = 3 THEN 1 ELSE 0 END AS b3 , CASE WHEN d.rgid = 4 THEN 1 ELSE 0 END AS a4 , CASE WHEN t.dealid IS Not NULL AND d.rgid = 4 THEN 1 ELSE 0 END AS r4 , CASE WHEN t.dealid IS NULL AND d.rgid = 4 THEN 1 ELSE 0 END AS b4 , CASE WHEN d.rgid = 5 THEN 1 ELSE 0 END AS a5 , CASE WHEN t.dealid IS Not NULL AND d.rgid = 5 THEN 1 ELSE 0 END AS r5 , CASE WHEN t.dealid IS NULL AND d.rgid = 5 THEN 1 ELSE 0 END AS b5 , CASE WHEN d.rgid >= 6 THEN 1 ELSE 0 END AS a6 , CASE WHEN t.dealid IS Not NULL AND d.rgid >= 6 THEN 1 ELSE 0 END AS r6 ,	CASE WHEN t.dealid IS NULL AND d.rgid >= 6 THEN 1 ELSE 0 END AS b6,  CASE WHEN t.dealid IS NOT NULL THEN 1 ELSE 0 END AS recovered,
-d.sraid, b.brkrnm as sranm, b.active as sraactive, b.centre
-FROM lksa201516.tbxfieldrcvry d
-LEFT JOIN lksa.tbmbroker b on d.sraid = b.brkrid and b.brkrtyp = 2
-LEFT JOIN (
-	SELECT r.dealid, SUM(rd.rcptamt) AS rcptamt FROM lksa201516.tbxdealrcpt r JOIN lksa201516.tbxdealrcptdtl rd ON r.rcptid = rd.rcptid
-		WHERE r.cclflg = 0 AND r.CBflg = 0 AND (rd.dctyp = 101 OR rd.dctyp = 111) and r.rcptpaymode = 1
-		AND r.rcptdt between '".date('Y-m-01')."' and '".date('Y-m-t')."'
-		GROUP BY r.dealid having rcptamt >= 450
-) AS t ON d.dealid = t.dealid WHERE d.mm = $month  and d.sraid = '$id' ) t1 GROUP BY  t1.centre, t1.sraid  having t1.sraid = '$id'";
-
-	try {
-		$db = getConnection();
-		$stmt = $db->prepare($sql);
-		$stmt->bindParam("id", $id);
-		$stmt->bindParam("month", $month);
-		$stmt->execute();
-		$deal = $stmt->fetchObject();
-		if($deal){
-			$deal -> unassigned ="0";
-			$deal -> td_fup ="14";
-			$deal -> td_fixed ="4";
-			$deal -> td_recovered ="3";
-			$deal -> td_collection ="10124";
-			$deal -> mnth_collection ="323451";
-		}
-		$db = null;
-		echo json_encode($deal);
-	} catch(PDOException $e) {
-		echo '{"error":{"text":'. $e->getMessage() .'}}';
-		error_log("From API Index.php: ".$e->getMessage());
-	}
-}
-
-*/
 function getDeal($id) {
 	$sql = "select dealid, dealno, dealnm, hpdt, dd as assigned_on, rgid as bucket, EMI, DueAmt, city, area, centre FROM lksa201516.tbxfieldrcvry where mm = 6 and dealid = :id";
 	try {
@@ -137,5 +128,52 @@ function getDeal($id) {
 		echo '{"error":{"text":'. $e->getMessage() .'}}';
 		error_log("From API Index.php: ".$e->getMessage());
 	}
+}
+
+function format_ledger($l){
+	$removeWords = array("BEING INSTALLMENT AMOUNT RECEIVED BY","BEING CASH DEPOSITED", "BEING CHQ. CLEARED IN", "BEING AMT RCVD BY ECS", "BEING AMT RCVD", "BY ECS", "BEING AMT RECD BY");
+
+	$ledger = array();
+	$i =-1;	$p = 0; $balance = 0; $rowStarted = 0;
+	$EMI_CANCELLED = -1; $EMI_PENDING = 0; $EMI_CLEARED = 1; $EMI_BOUNCED = 2;
+
+//	print_a($l);
+	foreach ($l['result'] as $row){
+//		print_a($row);
+		if($row['source'] == 1){ // This is a row for DUE EMI from Duelist so start a new row for this
+			$balance += $row['DueAmt'];
+			$rowStarted = 1;
+			$ledger[++$i] = array('sn' => NULL, 'dt' => NULL, 'dueamt' => NULL, 'rEMI' => NULL, 'balance' => NULL, 'status'=> NULL, 'remarks' => NULL, 'sranm' => NULL, 'mode'=>NULL);
+			$ledger[$i]['sn'] = ++$p; $ledger[$i]['dt'] = $row['dDate']; $ledger[$i]['dueamt'] = $row['DueAmt'];
+			$last_dDate = $row['dDate'];
+		}
+		else { // This is a row for Receipt side
+			foreach($removeWords as $w){ //Trim the remarks line and remove irrelevant text.
+				if(startsWith($row['Remarks'], $w)) {
+					 $row['Remarks'] = trim(substr($row['Remarks'], strlen($w)));
+				}
+			}
+			if($rowStarted == 1 & $last_dDate == $row['rDate']){
+			}
+			else{
+				$ledger[++$i] = array('sn' => NULL, 'dt' => NULL, 'dueamt' => NULL, 'rEMI' => NULL, 'balance' => NULL, 'status'=> NULL, 'remarks' => NULL, 'sranm' => NULL, 'mode'=>NULL);
+				$rowStarted = 1;
+			}
+			if($row['CBFlg']== 0 && $row['CCLflg']==0){
+				$balance -= $row['rEMI'];
+			}
+			$ledger[$i]['dt'] = $row['rDate'];
+			$ledger[$i]['rEMI'] = $row['rEMI'];
+			$ledger[$i]['status'] = ($row['CBFlg']==-1 ? $EMI_BOUNCED : ($row['CCLflg']== -1 ? $EMI_CANCELLED : (isset($row['reconind']) && $row['reconind'] == $EMI_PENDING ? 0 : $EMI_CLEARED)));
+			$ledger[$i]['remarks'] = $row['Remarks'];
+			$ledger[$i]['sranm'] = $row['sranm'];
+			$ledger[$i]['mode'] = $row['mode'];
+			$rowStarted = 0;
+		}
+		$ledger[$i]['balance'] = nf($balance, true);
+	}
+//	print_a($ledger);
+	return $ledger;
+
 }
 ?>

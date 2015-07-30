@@ -1,4 +1,5 @@
 <?
+require 'config.php';
 require 'Slim/Slim.php';
 
 $mm = date('m'); $yy = date('Y');
@@ -8,19 +9,20 @@ $_SESSION['DB_PREFIX_LAST'] = "lksa".($mm < 4 ? ($yy - 2)."".substr(($yy-1),-2) 
 $_SESSION['USER_DB_PREFIX'] = "ob_sa";
 
 $_SESSION['ROWS_IN_TABLE'] = 30;
+$_SESSION['API_ROW_LIMIT'] = 3;
 $_SESSION['MOBILE_ROWS_IN_TABLE'] = 15;
-$_SESSION['LKS_ROOT'] = 'http://r.loksuvidha.com:81';
+
 $_SESSION['PAY_MODE'] = array(0=>'Unknown', 1=> 'Cash', 2=> 'PDC',3=> 'Other', 4=> '4', 5=>'5', 6=> 'ECS',7=> '7');
 
 function connect(){
-	return mysqli_connect("192.168.1.150","root","admin", $_SESSION['DB_PREFIX']);
+	return mysqli_connect($_SESSION['DB_HOST'],$_SESSION['DB_USER'],$_SESSION['DB_PASSWORD'], $_SESSION['DB_PREFIX']);
 }
 
 function getConnection() {
-	$dbhost="192.168.1.150";
-	$dbuser="root";
-	$dbpass="admin";
-	$dbname="lksa";
+	$dbhost=$_SESSION['DB_HOST'];
+	$dbuser=$_SESSION['DB_USER'];
+	$dbpass=$_SESSION['DB_PASSWORD'];
+	$dbname=$_SESSION['DB_PREFIX'];
 	$dbh = new PDO("mysql:host=$dbhost;dbname=$dbname", $dbuser, $dbpass);
 	$dbh->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 	return $dbh;
@@ -33,7 +35,7 @@ function executeSelect($q, $id = NULL){
 		$db = getConnection();
 		$stmt = $db->query($q);
         $results['found_rows'] = $db->query('SELECT FOUND_ROWS()')->fetch(PDO::FETCH_COLUMN);
-		$results['result'] = $stmt->fetchAll(PDO::FETCH_OBJ);
+		$results['result'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
 		$results['row_count'] = count($results['result']);
 		$db = null;
 	} catch(PDOException $e) {
@@ -42,8 +44,6 @@ function executeSelect($q, $id = NULL){
 	}
 	return $results;
 }
-
-
 
 function executeSingleSelect($q){
         $conn = connect();
@@ -68,8 +68,6 @@ function executeUpdate($q){
         mysqli_close($conn);
         return $value;
 }
-
-
 
 function startsWith($haystack, $needle){return $needle === "" || strpos($haystack, $needle) === 0;}
 
@@ -154,12 +152,6 @@ function validEmail($email){
 }
 
 function titleCase($string, $delimiters = array(" ", "-", ".", "'", "O'", "Mc"), $exceptions = array("and", "to", "of", "das", "dos", "I", "II", "III", "IV", "V", "VI")){
-    /*
-     * Exceptions in lower case are words you don't want converted
-     * Exceptions all in upper case are any words you don't want converted to title case
-     *   but should be converted to upper case, e.g.:
-     *   king henry viii or king henry Viii should be King Henry VIII
-     */
     $string = mb_convert_case($string, MB_CASE_TITLE, "UTF-8");
     foreach ($delimiters as $dlnr => $delimiter) {
         $words = explode($delimiter, $string);
