@@ -73,14 +73,44 @@ function getDeals($page) {
 
 		$ledger = executeSelect($sql);
 
-	    $sql_guarantor = "select tcase(GrtrNm) as guarantor_name, tcase(concat(add1, ' ', add2, ' ', area, ' ', tahasil, ' ', city)) as 		        guarantor_address, mobile as guarantor_mobile from ".$dbPrefix.".tbmdealguarantors where DealId=$dealid";
+	    $sql_guarantor = "select tcase(GrtrNm) as guarantor_name, tcase(concat(add1, ' ', add2, ' ', area, ' ', tahasil, ' ', city)) as guarantor_address, mobile as guarantor_mobile from ".$dbPrefix.".tbmdealguarantors where DealId=$dealid";
 		$guarantor = executeSelect($sql_guarantor);
 
 		$sql_assignment = "select mm as month,CallerId as caller_id,SRAId as sra_id from ".$dbPrefix_curr.".tbxfieldrcvry where DealId=$dealid";
 		$assignment = executeSelect($sql_assignment);
 
-		$sql_otherphone = "select tel1 as self_no1,tel2 as self_no2 from ".$dbPrefix.".tbmdeal where DealId=$dealid";
+		$sql_otherphone = "select mobile, mobile2 from ".$dbPrefix.".tbmdeal where DealId=$dealid";
 		$otherphone = executeSelect($sql_otherphone);
+
+		//print_a($otherphone);
+		//die();
+
+         $found_rows=0;
+		 $ph = array();
+
+		 if($otherphone['row_count'] > 0){
+			$index=0;
+			if(isset($otherphone['result'][0]['mobile'])){
+				$ph[$index]= array();
+				$ph[$index]["name"]='Self';
+				$ph[$index]["relation"]='Self';
+				$ph[$index]["number"]=$otherphone['result'][0]['mobile'];
+				$index++;
+				$found_rows++;
+			}
+			if(isset($otherphone['result'][0]['mobile2'])){
+				$ph[$index]= array();
+				$ph[$index]["name"]='Self';
+				$ph[$index]["relation"]='Self';
+				$ph[$index]["number"]=$otherphone['result'][0]['mobile2'];
+
+			}
+		}
+         $ph["row_count"]=$otherphone['row_count'];
+		 $ph["found_rows"]=$found_rows;
+
+
+
 
         $sql_logs = "SELECT t.dt, t.type,u.realname AS caller, b.brkrnm AS sranm, date_format(t.followupdt,'%d-%b') as followupdt, t.remark FROM(
         SELECT dealid, followupdate AS dt,'FIRSTCALL' AS `type`,  NULL AS callerid, Remark AS remark, NULL AS followupdt, NULL AS sraid FROM $dbPrefix_curr.tbxdealduedatefollowuplog WHERE dealid = $dealid
@@ -108,7 +138,7 @@ function getDeals($page) {
 		$deals['result'][$i]['dealcharges'] = $dealcharges;
     	$deals['result'][$i]['bounce'] = $bounce;
 		$deals['result'][$i]['seized'] = $seized;
-		$deals['result'][$i]['phonenumbers'] = $otherphone;
+		$deals['result'][$i]['phonenumbers'] = $ph;
 		$deals['result'][$i]['assignment'] = $assignment;
 		$deals['result'][$i]['ledger'] = format_ledger($ledger);
 		$deals['result'][$i]['logs'] = $logs;
@@ -166,6 +196,7 @@ function getDeal($id) {
 		error_log("From API Index.php: ".$e->getMessage());
 	}
 }
+
 
 function format_ledger($l){
 	$removeWords = array("BEING INSTALLMENT AMOUNT RECEIVED BY","BEING CASH DEPOSITED", "BEING CHQ. CLEARED IN", "BEING AMT RCVD BY ECS", "BEING AMT RCVD", "BY ECS", "BEING AMT RECD BY");
