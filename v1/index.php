@@ -5,8 +5,10 @@ require 'functions.php';
 
 $app = new Slim();
 
-$app->get('/register/imei', 'register');
+$app->get('/register/:imei', 'register');
+$app->get('/registergcm/:gcmid', 'registerGcm');
 $app->get('/staticdata', 'getStaticData');
+$app->get('/contacts/:lastid', 'getContacts');
 $app->get('/deals/:page', 'getDeals');
 $app->get('/dashboards', 'getDashboards');
 $app->get('/dashboard/:id/:month', 'getDashboard');
@@ -14,10 +16,155 @@ $app->get('/dashboard/:id/:month', 'getDashboard');
 $app->run();
 
 function register($imei){
+	$dbPrefix = $_SESSION['DB_PREFIX'];
+    if (!ctype_digit($imei)){
+    	$response["success"] = 0;
+		$response["message"] = 'imei id is not valid';
+		echo json_encode($response);
+
+		return;
+	}
+	$sql = "select e.id,tcase(e.name) as name,null as pin,e.mobile,e.email,null as photo_url,e.department,e.designation,e.role,tcase(e.centre) as centre,null as wallet_limit,null as printer_id,null as app_version,null as admin_dsn,null as service_url from ".$dbPrefix.".tbmemployee e join ".$dbPrefix.".tbmdevices d on e.id = d.empid where d.imei = '$imei' and e.active=1";
+	$emp = executeSelect($sql);
+
+	$response = array();
+	if($emp['row_count']>0){
+	    $response["success"] = 1;
+	}
+	else{
+		$response["success"] = 0;
+		$response["message"] = 'User does not exist';
+		echo json_encode($response);
+		return;
+	}
+	$response["employee"] = $emp;
+	echo json_encode($response);
+}
+
+function registerGcm($gcmid){
+	$dbPrefix = $_SESSION['DB_PREFIX'];
+	$empid = 181;
+
+	if(!isset($empid)){
+		$response["success"] = 0;
+		$response["message"] = 'Employee does not exist';
+		echo json_encode($response);
+		return;
+	}
+    if (!ctype_alnum($gcmid)){
+    	$response["success"] = 0;
+		$response["message"] = 'gcmid is not valid';
+		echo json_encode($response);
+		return;
+	}
+	$sql_update = "update ".$dbPrefix.".tbmdevices set gcmid = '$gcmid' where empid=$empid";
+	$affectedrows = executeUpdate($sql_update);
+
+	$response = array();
+	if($affectedrows>0){
+		$response["success"] = 1;
+		$response["message"] = 'Successfully Register';
+	}else{
+		$response["success"] = 0;
+		$response["message"] = 'Already Register';
+	}
+	echo json_encode($response);
+
+
 }
 
 function getStaticData(){
+    $dbPrefix = $_SESSION['DB_PREFIX'];
+    $dbPrefix_curr = $_SESSION['DB_PREFIX_CURR'];
+    $dbPrefix_last = $_SESSION['DB_PREFIX_LAST'];
+
+    $sql = "select sql_calc_found_rows bankid,banknm from ".$dbPrefix.".tbmsourcebank";
+	$bank = executeSelect($sql);
+
+	foreach($bank['result'] as $i=> $static){
+   	$bankid = $static['bankid'];
+
+   	$sql_branchnm = "select sql_calc_found_rows BankBrnchNm as branch,city from ".$dbPrefix.".tbmsourcebankbrnch where bankid=$bankid";
+   	$branchnm = executeSelect($sql_branchnm);
+
+   	$bank['result'][$i]['branchname'] = $branchnm;
+ 	}
+    $staticdata['bank']=$bank;
+
+	$states = array();
+	$states[0]["state"]='Maharashtra';
+	$states[1]["state"]='Madhya Pradesh';
+	$state["row_count"]=count($states);
+	$state["found_rows"]=count($states);
+	$state['result']=$states;
+	$staticdata['states']=$state;
+
+   	$sql_logs = "select Description as tag from ".$dbPrefix.".tbmrecoverytags where tagtyp = 1 or tagtyp = 2";
+	$logs = executeSelect($sql_logs);
+	$staticdata['logreason']=$logs;
+
+
+   	$relationship = array();
+	$relationship[0]["tag"]='Mother';
+	$relationship[1]["tag"]='Father';
+	$relationship[2]["tag"]='Wife';
+	$relationship[3]["tag"]='Husband';
+	$relationship[4]["tag"]='Brother';
+	$relationship[5]["tag"]='Son/Daughter';
+	$relationship[6]["tag"]='Neighbour';
+	$relation["row_count"]=count($relationship);
+	$relation["found_rows"]=count($relationship);
+	$relation['result']=$relationship;
+	$staticdata['relationship']=$relation;
+
+   	$dctype = array();
+   	$dctype[0]["type"]='101';
+   	$dctype[0]["name"]='EMI';
+   	$dctype[1]["type"]='102';
+   	$dctype[1]["name"]='Clearing';
+   	$dctype[2]["type"]='103';
+   	$dctype[2]["name"]='CB';
+   	$dctype[3]["type"]='104';
+   	$dctype[3]["name"]='Penalty';
+   	$dctype[4]["type"]='105';
+   	$dctype[4]["name"]='Seizing';
+   	$dctype[5]["type"]='107';
+   	$dctype[5]["name"]='Other';
+   	$dctype[6]["type"]='111';
+   	$dctype[6]["name"]='CC';
+	$dc["row_count"]=count($dctype);
+	$dc["found_rows"]=count($dctype);
+	$dc['result']=$dctype;
+	$staticdata['dctype']=$dc;
+
+ 	echo '{"staticdata": ' . json_encode($staticdata) . '}';
+
 }
+
+
+function getContacts($lastid){
+	$dbPrefix = $_SESSION['DB_PREFIX'];
+
+	$sql = "select id,tcase(name) as name,mobile,designation,tcase(centre) as centre, null as photo_url from ".$dbPrefix.".tbmemployee where active=1 and id > $lastid ORDER BY id ASC";
+	$contacts = executeSelect($sql);
+
+		$response = array();
+		if($contacts['row_count']>0){
+		    $response["success"] = 1;
+		}
+		else{
+			$response["success"] = 0;
+			$response["message"] = 'contacts does not exist';
+			echo json_encode($response);
+			return;
+		}
+	$response["contacts"] = $contacts;
+	echo json_encode($response);
+
+	//echo '{"contacts": ' . json_encode($contacts) . '}';
+}
+
+
 
 function getDeals($page) {
     $dbPrefix = $_SESSION['DB_PREFIX'];
@@ -28,7 +175,7 @@ function getDeals($page) {
 
 	$sraid = 137;
 
-	$sql = "select sql_calc_found_rows fr.dealid, fr.dealid, fr.dealno, tcase(fr.dealnm) as name,tcase(d.centre) as centre, tcase(fr.area) as area, tcase(fr.city) as city, tcase(fr.address) as address, fr.mobile, DATE_FORMAT(fr.hpdt, '%d-%m-%Y') as hpdt, fr.dueamt as total_due,fr.OdDueAmt as overdue, fr.dd as assigned_on, DATE_FORMAT(fr.CallerFollowupDt,'%d-%m-%Y') as caller_followup_dt,DATE_FORMAT(fr.SRAFollowupDt,'%d-%m-%Y') as sra_followup_dt, fr.rgid as bucket,round(d.financeamt) as finance_amt,fr.emi,d.period as tenure,DATE_FORMAT(d.hpexpdt, '%d-%m-%Y') as expiry_dt, DATE_FORMAT(d.startduedt, '%d') as emi_day, (case when d.paytype=1 then 'PDC' when d.paytype=2 then 'ECS' when d.paytype=3 then 'Direct Debit' end) as type, tcase(concat(dv.make, ' ', dv.model)) as vehicle_model, dv.VhclColour as vehicle_color, dv.Chasis as vehicle_chasis_no, dv.EngineNo as vehicle_engine_no, dv.RTORegNo as rto_reg_no, tcase(b.BrkrNm) as dealer, tcase(trim(concat(ifnull(b.city,''), ' ', case when b.centre != b.city then b.centre else '' end))) as showroom, fr.SalesmanId as salesman_id
+	$sql = "select sql_calc_found_rows fr.dealid, fr.dealid, fr.dealno, tcase(fr.dealnm) as name,tcase(d.centre) as centre, tcase(fr.area) as area, tcase(fr.city) as city, tcase(fr.address) as address, fr.mobile, DATE_FORMAT(fr.hpdt, '%d-%m-%Y') as hpdt, round(fr.dueamt) as total_due,round(fr.OdDueAmt) as overdue, fr.dd as assigned_on, DATE_FORMAT(fr.CallerFollowupDt,'%d-%m-%Y') as caller_followup_dt,DATE_FORMAT(fr.SRAFollowupDt,'%d-%m-%Y') as sra_followup_dt, fr.rgid as bucket,round(d.financeamt) as finance_amt,round(fr.emi) as emi,d.period as tenure,DATE_FORMAT(d.hpexpdt, '%d-%m-%Y') as expiry_dt, DATE_FORMAT(d.startduedt, '%d') as emi_day, (case when d.paytype=1 then 'PDC' when d.paytype=2 then 'ECS' when d.paytype=3 then 'Direct Debit' end) as type, tcase(concat(dv.make, ' ', dv.model)) as vehicle_model, dv.VhclColour as vehicle_color, dv.Chasis as vehicle_chasis_no, dv.EngineNo as vehicle_engine_no, dv.RTORegNo as vehicle_rto_reg_no, tcase(b.BrkrNm) as dealer, tcase(trim(concat(ifnull(b.city,''), ' ', case when b.centre != b.city then b.centre else '' end))) as dealer_loc, fr.SalesmanId as salesman_id
 	FROM ".$dbPrefix_curr.".tbxfieldrcvry fr
 	join ".$dbPrefix.".tbmdeal d
 	join ".$dbPrefix.".tbmdealvehicle dv
@@ -38,8 +185,12 @@ function getDeals($page) {
 
 	$deals = executeSelect($sql);
 
+
+
 	foreach($deals['result'] as $i=> $deal){
 		$dealid = $deal['dealid'];
+
+
 
 		$q1 = "SELECT DueDt as Date, round(DueAmt) as Due, round(CollectionChrgs) as CC, round(DueAmt+CollectionChrgs) as Total, (case WHEN Duedt <= curdate() THEN 1 ELSE 0 END) as eligible  FROM ".$dbPrefix.".tbmduelist where dealid = $dealid order by Year(DueDt), Month(DueDt)";
 
@@ -71,21 +222,25 @@ function getDeals($page) {
 			SELECT 2 AS source, DATE, NULL as dDate, NULL AS Due, NULL AS DueAmt, NULL AS eligible, DATE_FORMAT(Date, '%d-%b-%Y') as rDate, Received, rcptid, mode, CBFlg, CBCCLFlg, CCLflg, cbdt, ccldt, cbrsn, sranm, Remarks, (EMI+CC) as rEMI, Penalty, (Clearing + CB + Seizing + Other) as Others, reconind FROM ($q2) as t2
 		) t order by Date, source";
 
-		$ledger = executeSelect($sql);
+		 $ledger = executeSelect($sql);
+		 $ledger1 = format_ledger($ledger);
 
-	    $sql_guarantor = "select tcase(GrtrNm) as guarantor_name, tcase(concat(add1, ' ', add2, ' ', area, ' ', tahasil, ' ', city)) as guarantor_address, mobile as guarantor_mobile from ".$dbPrefix.".tbmdealguarantors where DealId=$dealid";
+		 $ledgers["row_count"]=$ledger['row_count'];
+	     $ledgers["found_rows"]=$ledger['found_rows'];
+		 $ledgers['result']=$ledger1;
+
+
+	    $sql_guarantor = "select tcase(GrtrNm) as name, tcase(concat(add1, ' ', add2, ' ', area, ' ', tahasil, ' ', city)) as address, mobile as mobile from ".$dbPrefix.".tbmdealguarantors where DealId=$dealid";
 		$guarantor = executeSelect($sql_guarantor);
 
-		$sql_assignment = "select mm as month,CallerId as caller_id,SRAId as sra_id from ".$dbPrefix_curr.".tbxfieldrcvry where DealId=$dealid";
+		$sql_assignment = "select fr.mm as month,fr.yy as year,fr.CallerId as caller_empid,e1.name as caller_name,e1.mobile as caller_phone,fr.SRAId as sra_id,e.name as sra_name,e.Mobile as sra_phone from ".$dbPrefix_curr.".tbxfieldrcvry fr join ".$dbPrefix.".tbmemployee e join ".$dbPrefix.".tbmemployee e1 on fr.SRAId = e.id and fr.CallerId = e1.id where fr.DealId=$dealid";
+
 		$assignment = executeSelect($sql_assignment);
 
 		$sql_otherphone = "select mobile, mobile2 from ".$dbPrefix.".tbmdeal where DealId=$dealid";
 		$otherphone = executeSelect($sql_otherphone);
 
-		//print_a($otherphone);
-		//die();
-
-         $found_rows=0;
+         $rows=0;
 		 $ph = array();
 
 		 if($otherphone['row_count'] > 0){
@@ -96,20 +251,20 @@ function getDeals($page) {
 				$ph[$index]["relation"]='Self';
 				$ph[$index]["number"]=$otherphone['result'][0]['mobile'];
 				$index++;
-				$found_rows++;
+				$rows++;
 			}
 			if(isset($otherphone['result'][0]['mobile2'])){
 				$ph[$index]= array();
 				$ph[$index]["name"]='Self';
 				$ph[$index]["relation"]='Self';
 				$ph[$index]["number"]=$otherphone['result'][0]['mobile2'];
+				$rows++;
 
 			}
 		}
-         $ph["row_count"]=$otherphone['row_count'];
-		 $ph["found_rows"]=$found_rows;
-
-
+          $phones["row_count"]=$rows;
+		  $phones["found_rows"]=$rows;
+		  $phones['result']=$ph;
 
 
         $sql_logs = "SELECT t.dt, t.type,u.realname AS caller, b.brkrnm AS sranm, date_format(t.followupdt,'%d-%b') as followupdt, t.remark FROM(
@@ -124,27 +279,40 @@ function getDeals($page) {
 		ORDER BY dt DESC";
         $logs = executeSelect($sql_logs);
 
-        $sql_dealcharges = "SELECT dctyp as dctype,(ChrgsApplied-ChrgsRcvd) as amount FROM ".$dbPrefix.".tbmdealchrgs WHERE DealId=$dealid AND DcTyp NOT IN (101,102,111) AND ChrgsApplied > ChrgsRcvd GROUP BY Dctyp";
-
+        $sql_dealcharges = "SELECT dctyp as type,round(ChrgsApplied-ChrgsRcvd) as amount FROM ".$dbPrefix.".tbmdealchrgs WHERE DealId=$dealid AND DcTyp NOT IN (101,102,111) AND ChrgsApplied > ChrgsRcvd GROUP BY Dctyp";
         $dealcharges = executeSelect($sql_dealcharges);
 
         $sql_bounce = "select concat(count(case when status=-1 then 1 end),'/',count(depositdt)) as bounced from ".$dbPrefix.".tbmpaytypedtl where active=2 and depositdt IS NOT NULL and dealid = $dealid";
-        $bounce = executeSelect($sql_bounce);
+        $bounce = executeSingleSelect($sql_bounce);
 
         $sql_seized = "select count(dealid)as seized from ".$dbPrefix_curr.".tbxvhclsz where dealid=$dealid";
-        $seized = executeSelect($sql_seized);
+        $seized = executeSingleSelect($sql_seized);
 
+  		$deals['result'][$i]['bounce'] = $bounce;
+		$deals['result'][$i]['seized'] = $seized;
+		$deals['result'][$i]['phonenumbers'] = $phones;
    		$deals['result'][$i]['guarantor'] = $guarantor;
 		$deals['result'][$i]['dealcharges'] = $dealcharges;
-    	$deals['result'][$i]['bounce'] = $bounce;
-		$deals['result'][$i]['seized'] = $seized;
-		$deals['result'][$i]['phonenumbers'] = $ph;
-		$deals['result'][$i]['assignment'] = $assignment;
-		$deals['result'][$i]['ledger'] = format_ledger($ledger);
+  		$deals['result'][$i]['assignment'] = $assignment;
+		$deals['result'][$i]['ledger'] = $ledgers;
 		$deals['result'][$i]['logs'] = $logs;
+
 	}
 
-	echo '{"deals": ' . json_encode($deals) . '}';
+		$response = array();
+			if($deals['row_count']>0){
+			    $response["success"] = 1;
+			}
+			else{
+				$response["success"] = 0;
+				$response["message"] = 'deals does not exist';
+				echo json_encode($response);
+				return;
+			}
+		$response["deals"] = $deals;
+	    echo json_encode($response);
+
+	   //echo '{"deals": ' . json_encode($deals) . '}';
 }
 
 
@@ -164,6 +332,10 @@ function getDashboards(){
 	$dashboard = executeSelect($sql);
 	echo '{"dashboards": ' . json_encode($dashboard) . '}';
 }
+
+
+
+
 
 function getEmployeeIMEI($id){
 /*	$sql = "select * FROM lksa201516.tbxfieldrcvry where mm = 6 and dealid = :id";
