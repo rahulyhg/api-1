@@ -24,7 +24,7 @@ function register($imei){
 
 		return;
 	}
-	$sql = "select e.id,tcase(e.name) as name,null as pin,e.mobile,e.email,null as photo_url,e.department,e.designation,e.role,tcase(e.centre) as centre,null as wallet_limit,null as printer_id,null as app_version,null as admin_dsn,null as service_url from ".$dbPrefix.".tbmemployee e join ".$dbPrefix.".tbmdevices d on e.id = d.empid where d.imei = '$imei' and e.active=1";
+	$sql = "select e.id,tcase(e.name) as name,null as pin,e.mobile, null as email,null as photo_url,e.department,e.designation,e.role,tcase(e.centre) as centre,null as wallet_limit,null as printer_id,null as app_version,null as admin_dsn,null as service_url from ".$dbPrefix.".tbmemployee e join ".$dbPrefix.".tbmdevices d on e.id = d.empid where d.imei = '$imei' and e.active=1";
 	$emp = executeSelect($sql);
 
 	$response = array();
@@ -99,7 +99,7 @@ function getStaticData(){
 	$state['result']=$states;
 	$staticdata['states']=$state;
 
-   	$sql_logs = "select Description as tag from ".$dbPrefix.".tbmrecoverytags where tagtyp = 1 or tagtyp = 2";
+   	$sql_logs = "select Description as tag from ".$dbPrefix.".tbmrecoverytags where allowtagto = 0";
 	$logs = executeSelect($sql_logs);
 	$staticdata['logreason']=$logs;
 
