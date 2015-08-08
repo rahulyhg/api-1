@@ -12,6 +12,8 @@ $app->get('/contacts/:lastid', 'getContacts');
 $app->get('/deals/:page', 'getDeals');
 $app->get('/dashboards', 'getDashboards');
 $app->get('/dashboard/:id/:month', 'getDashboard');
+$app->get('/daywisecollection', 'getDaywiseCollection');
+
 
 $app->run();
 
@@ -24,7 +26,9 @@ function register($imei){
 
 		return;
 	}
-	$sql = "select e.id,tcase(e.name) as name,null as pin,e.mobile, null as email,null as photo_url,e.department,e.designation,e.role,tcase(e.centre) as centre,null as wallet_limit,null as printer_id,null as app_version,null as admin_dsn,null as service_url from ".$dbPrefix.".tbmemployee e join ".$dbPrefix.".tbmdevices d on e.id = d.empid where d.imei = '$imei' and e.active=1";
+
+	$sql = "select e.id,tcase(e.name) as name,null as pin,e.mobile,null as e.email,null as photo_url,e.department,e.designation,e.role,tcase(e.centre) as centre,null as wallet_limit,null as printer_id,null as app_version,null as admin_dsn,null as service_url from ".$dbPrefix.".tbmemployee e join ".$dbPrefix.".tbmdevices d on e.id = d.empid where d.imei = '$imei' and e.active=1";
+
 	$emp = executeSelect($sql);
 
 	$response = array();
@@ -185,12 +189,8 @@ function getDeals($page) {
 
 	$deals = executeSelect($sql);
 
-
-
 	foreach($deals['result'] as $i=> $deal){
 		$dealid = $deal['dealid'];
-
-
 
 		$q1 = "SELECT DueDt as Date, round(DueAmt) as Due, round(CollectionChrgs) as CC, round(DueAmt+CollectionChrgs) as Total, (case WHEN Duedt <= curdate() THEN 1 ELSE 0 END) as eligible  FROM ".$dbPrefix.".tbmduelist where dealid = $dealid order by Year(DueDt), Month(DueDt)";
 
@@ -222,19 +222,16 @@ function getDeals($page) {
 			SELECT 2 AS source, DATE, NULL as dDate, NULL AS Due, NULL AS DueAmt, NULL AS eligible, DATE_FORMAT(Date, '%d-%b-%Y') as rDate, Received, rcptid, mode, CBFlg, CBCCLFlg, CCLflg, cbdt, ccldt, cbrsn, sranm, Remarks, (EMI+CC) as rEMI, Penalty, (Clearing + CB + Seizing + Other) as Others, reconind FROM ($q2) as t2
 		) t order by Date, source";
 
-		 $ledger = executeSelect($sql);
-		 $ledger1 = format_ledger($ledger);
-
-		 $ledgers["row_count"]=$ledger['row_count'];
-	     $ledgers["found_rows"]=$ledger['found_rows'];
-		 $ledgers['result']=$ledger1;
-
+		$ledger = executeSelect($sql);
+		$ledger1 = format_ledger($ledger);
+		$ledgers["row_count"]=$ledger['row_count'];
+	    $ledgers["found_rows"]=$ledger['found_rows'];
+		$ledgers['result']=$ledger1;
 
 	    $sql_guarantor = "select tcase(GrtrNm) as name, tcase(concat(add1, ' ', add2, ' ', area, ' ', tahasil, ' ', city)) as address, mobile as mobile from ".$dbPrefix.".tbmdealguarantors where DealId=$dealid";
 		$guarantor = executeSelect($sql_guarantor);
 
 		$sql_assignment = "select fr.mm as month,fr.yy as year,fr.CallerId as caller_empid,e1.name as caller_name,e1.mobile as caller_phone,fr.SRAId as sra_id,e.name as sra_name,e.Mobile as sra_phone from ".$dbPrefix_curr.".tbxfieldrcvry fr join ".$dbPrefix.".tbmemployee e join ".$dbPrefix.".tbmemployee e1 on fr.SRAId = e.id and fr.CallerId = e1.id where fr.DealId=$dealid";
-
 		$assignment = executeSelect($sql_assignment);
 
 		$sql_otherphone = "select mobile, mobile2 from ".$dbPrefix.".tbmdeal where DealId=$dealid";
@@ -261,13 +258,13 @@ function getDeals($page) {
 				$rows++;
 
 			}
-		}
+		 }
           $phones["row_count"]=$rows;
 		  $phones["found_rows"]=$rows;
 		  $phones['result']=$ph;
 
 
-        $sql_logs = "SELECT t.dt, t.type,u.realname AS caller, b.brkrnm AS sranm, date_format(t.followupdt,'%d-%b') as followupdt, t.remark FROM(
+        $sql_logs = "SELECT t.dt, t.type,u.realname AS caller_name, b.brkrnm AS sra_name, date_format(t.followupdt,'%d-%b') as followup_dt, t.remark FROM(
         SELECT dealid, followupdate AS dt,'FIRSTCALL' AS `type`,  NULL AS callerid, Remark AS remark, NULL AS followupdt, NULL AS sraid FROM $dbPrefix_curr.tbxdealduedatefollowuplog WHERE dealid = $dealid
         UNION
         SELECT dealid, followupdate AS dt, 'CALLER' AS `type`, webuserid AS callerid, FollowupRemark AS remark, NxtFollowupDate AS followupdt, NULL AS sraid FROM $dbPrefix_curr.tbxdealfollowuplog WHERE dealid = $dealid
@@ -320,7 +317,7 @@ function getDashboards(){
     $dbPrefix = $_SESSION['DB_PREFIX'];
     $dbPrefix_curr = $_SESSION['DB_PREFIX_CURR'];
     $dbPrefix_last = $_SESSION['DB_PREFIX_LAST'];
-//    $sraid = $_SESSION['userid']; this is a comment - Another comment
+//  $sraid = $_SESSION['userid']; this is a comment - Another comment
 	$sraid = 137;
 
 	$sql = "SELECT * FROM (
@@ -333,7 +330,37 @@ function getDashboards(){
 	echo '{"dashboards": ' . json_encode($dashboard) . '}';
 }
 
+function getDaywiseCollection(){
+    $dbPrefix_curr = $_SESSION['DB_PREFIX_CURR'];
+    $sraid = 137;
+	$date_first = date('Y-m-01');
+	$date_last = date('Y-m-t');
 
+    $sql = "select count(distinct dealid) as recovered_cases,round(sum(TotRcptAmt)) as amount,date_format(rcptdt,'%d-%b') as dt from ".$dbPrefix_curr.".tbxdealrcpt where RcptPayMode=1 and CclFlg = 0 and sraid=$sraid and rcptdt between '$date_first' and '$date_last' group by rcptdt";
+
+    $collection = executeSelect($sql);
+
+    $response = array();
+		if($collection['row_count']>0){
+			$response["success"] = 1;
+		}
+		else{
+			$response["success"] = 0;
+			$response["message"] = 'Collection does not exist';
+			echo json_encode($response);
+			return;
+		}
+	$response["daywisecollection"] = $collection;
+	echo json_encode($response);
+
+}
+
+function getDealLogs($dealid) {
+    $dbPrefix = $_SESSION['DB_PREFIX'];
+    $dbPrefix_curr = $_SESSION['DB_PREFIX_CURR'];
+    $dbPrefix_last = $_SESSION['DB_PREFIX_LAST'];
+
+}
 
 
 
@@ -383,8 +410,8 @@ function format_ledger($l){
 		if($row['source'] == 1){ // This is a row for DUE EMI from Duelist so start a new row for this
 			$balance += $row['DueAmt'];
 			$rowStarted = 1;
-			$ledger[++$i] = array('sn' => NULL, 'dt' => NULL, 'dueamt' => NULL, 'rEMI' => NULL, 'balance' => NULL, 'status'=> NULL, 'remarks' => NULL, 'sranm' => NULL, 'mode'=>NULL);
-			$ledger[$i]['sn'] = ++$p; $ledger[$i]['dt'] = $row['dDate']; $ledger[$i]['dueamt'] = $row['DueAmt'];
+			$ledger[++$i] = array('serial_no' => NULL, 'dt' => NULL, 'due_amt' => NULL, 'recovered_emi' => NULL, 'balance' => NULL, 'status'=> NULL, 'remarks' => NULL, 'sra_name' => NULL, 'mode'=>NULL);
+			$ledger[$i]['serial_no'] = ++$p; $ledger[$i]['dt'] = $row['dDate']; $ledger[$i]['due_amt'] = $row['DueAmt'];
 			$last_dDate = $row['dDate'];
 		}
 		else { // This is a row for Receipt side
@@ -396,17 +423,17 @@ function format_ledger($l){
 			if($rowStarted == 1 & $last_dDate == $row['rDate']){
 			}
 			else{
-				$ledger[++$i] = array('sn' => NULL, 'dt' => NULL, 'dueamt' => NULL, 'rEMI' => NULL, 'balance' => NULL, 'status'=> NULL, 'remarks' => NULL, 'sranm' => NULL, 'mode'=>NULL);
+				$ledger[++$i] = array('serial_no' => NULL, 'dt' => NULL, 'due_amt' => NULL, 'recovered_emi' => NULL, 'balance' => NULL, 'status'=> NULL, 'remarks' => NULL, 'sra_name' => NULL, 'mode'=>NULL);
 				$rowStarted = 1;
 			}
 			if($row['CBFlg']== 0 && $row['CCLflg']==0){
 				$balance -= $row['rEMI'];
 			}
 			$ledger[$i]['dt'] = $row['rDate'];
-			$ledger[$i]['rEMI'] = $row['rEMI'];
+			$ledger[$i]['recovered_emi'] = $row['rEMI'];
 			$ledger[$i]['status'] = ($row['CBFlg']==-1 ? $EMI_BOUNCED : ($row['CCLflg']== -1 ? $EMI_CANCELLED : (isset($row['reconind']) && $row['reconind'] == $EMI_PENDING ? 0 : $EMI_CLEARED)));
 			$ledger[$i]['remarks'] = $row['Remarks'];
-			$ledger[$i]['sranm'] = $row['sranm'];
+			$ledger[$i]['sra_name'] = $row['sranm'];
 			$ledger[$i]['mode'] = $row['mode'];
 			$rowStarted = 0;
 		}
