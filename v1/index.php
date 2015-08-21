@@ -542,104 +542,10 @@ function postRTORegNo($dealid,$regno,$nocflag) {
 		$response["message"] = 'Operation Failed';
 	}
 	echo json_encode($response);
-<<<<<<< HEAD
 
 }
 
 
-function getUpdatedDeals($lasttimestamp){
-	$dbPrefix = $_SESSION['DB_PREFIX'];
-	$dbPrefix_curr = $_SESSION['DB_PREFIX_CURR'];
-	$dbPrefix_last = $_SESSION['DB_PREFIX_LAST'];
-
-	$sraid = 137;
-
-	if (!DateTime::createFromFormat('Y-m-d H:i:s', $lasttimestamp) !== FALSE) {
-	 		$response["success"] = 0;
-	  		$response["message"] = 'Last timestamp is not in proper format';
-	}
-	else{
-			$sql = "SELECT sql_calc_found_rows fr.dealid, fr.dealno, tcase(fr.dealnm) as name, tcase(fr.city) as city, tcase(fr.area) as area,tcase(fr.address) as address, round(fr.OdDueAmt) as overdue, round(fr.DueAmt) as total_due, fr.rgid as bucket, fr.Mobile as mobile, fr.GuarantorMobile as guarantor_mobile, tcase(fr.model) as vehicle_model, fr.dd as assigned_on,DATE_FORMAT(fr.CallerFollowupDt,'%d-%m-%Y') as caller_followup_dt,DATE_FORMAT(fr.SRAFollowupDt,'%d-%m-%Y') as sra_followup_dt,dt.UpdateTimeStamp as update_timestamp from ".$dbPrefix_curr.".tbxfieldrcvry fr join ".$dbPrefix.".tbmdealtimestamp dt on fr.dealid=dt.dealid where fr.mm = ".date('n')." and fr.sraid = $sraid and dt.UpdateTimeStamp > '$lasttimestamp'";
-
-			$updateddeals = executeSelect($sql);
-
-			$response = array();
-			if($updateddeals['row_count']>0){
-			    $response["success"] = 1;
-			}
-			else{
-				$response["success"] = 0;
-				$response["message"] = 'Updated deals not found';
-				echo json_encode($response);
-				return;
-			}
-
-			$response["updateddeals"] = $updateddeals;
-	}
-		echo json_encode($response);
-}
-
-
-function getNotifications($lastid){
-	$dbPrefix = $_SESSION['DB_PREFIX'];
-=======
->>>>>>> origin/master
-
-	$sraid = 137;
-
-	$sql = "select PkId as id,message,case when messagetype = 1 then 'R' when messagetype = 2 then 'S' when messagetype = 3 then 'O' end as message_type,DATE_FORMAT(inserttimestamp,'%d-%M %H:%i') as dt from ".$dbPrefix.".tbmnotification where empid = $sraid and pkid>$lastid ORDER BY inserttimestamp DESC";
-	$notifications = executeSelect($sql);
-
-		$response = array();
-		if($notifications['row_count']>0){
-		    $response["success"] = 1;
-		}
-		else{
-			$response["success"] = 0;
-			$response["message"] = 'notifications does not exist';
-			echo json_encode($response);
-			return;
-		}
-	$response["notifications"] = $notifications;
-	echo json_encode($response);
-}
-
-
-<<<<<<< HEAD
-function updateAppInfo(){
-	$dbPrefix = $_SESSION['DB_PREFIX'];
-	$request = Slim::getInstance()->request();
-
-	$sraid = 137;
-	$imei = $request->params('imei');
-	$appversion = $request->params('appversion');
-	$appinstalldt = $request->params('appinstalldt');
-	$applastupdatedt = $request->params('applastupdatedt');
-
-
-	if (!preg_match("/^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[1-2][0-9]|3[0-1])$/",$appinstalldt)){
-			$response["success"] = 0;
-			$response["message"] = 'App Install date is not correct';
-	}
-	else if (!preg_match("/^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[1-2][0-9]|3[0-1])$/",$applastupdatedt)){
-			$response["success"] = 0;
-			$response["message"] = 'App last update date is not correct';
-	}
-	else{
-		$sql_update = "update ".$dbPrefix.".tbmdevices set appversion = '$appversion',appinstalldt = '$appinstalldt',applastupdatedt = '$applastupdatedt' where empid=$sraid and imei=$imei";
-		$affectedrows = executeUpdate($sql_update);
-
-		$response = array();
-		if($affectedrows>0){
-			$response["success"] = 1;
-			$response["message"] = 'Successfully Updated';
-		}else{
-			$response["success"] = 0;
-			$response["message"] = 'Failed to update Or already updated';
-		}
-
-	}
-=======
 function getUpdatedDeals($lasttimestamp){
 	$dbPrefix = $_SESSION['DB_PREFIX'];
 	$dbPrefix_curr = $_SESSION['DB_PREFIX_CURR'];
@@ -692,45 +598,16 @@ function getNotifications($lastid){
 			return;
 		}
 	$response["notifications"] = $notifications;
->>>>>>> origin/master
 	echo json_encode($response);
 }
 
 
-<<<<<<< HEAD
-function updateLastLogin(){
-=======
 function updateAppInfo(){
->>>>>>> origin/master
 	$dbPrefix = $_SESSION['DB_PREFIX'];
 	$request = Slim::getInstance()->request();
 
 	$sraid = 137;
 	$imei = $request->params('imei');
-<<<<<<< HEAD
-	$lastlogindt = $request->params('lastlogindt');
-	$usagetime = $request->params('usagetime');
-
-
-	if (!preg_match("/^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[1-2][0-9]|3[0-1])$/",$lastlogindt)){
-			$response["success"] = 0;
-			$response["message"] = 'Last login date is not correct';
-	}
-	else{
-		$sql_update = "update ".$dbPrefix.".tbmdevices set lastlogindt = '$lastlogindt',usagetime = '$usagetime' where EmpId=$sraid and imei = $imei";
-		$affectedrows = executeUpdate($sql_update);
-
-		$response = array();
-		if($affectedrows>0){
-			$response["success"] = 1;
-			$response["message"] = 'Successfully Updated';
-		}else{
-			$response["success"] = 0;
-			$response["message"] = 'Failed to update Or already updated';
-		}
-
-	}
-=======
 	$appversion = $request->params('appversion');
 	$appinstalldt = $request->params('appinstalldt');
 	$applastupdatedt = $request->params('applastupdatedt');
@@ -758,11 +635,13 @@ function updateAppInfo(){
 		}
 
 	}
+
 	echo json_encode($response);
 }
 
 
 function updateLastLogin(){
+
 	$dbPrefix = $_SESSION['DB_PREFIX'];
 	$request = Slim::getInstance()->request();
 
@@ -790,7 +669,7 @@ function updateLastLogin(){
 		}
 
 	}
->>>>>>> origin/master
+
 	echo json_encode($response);
 }
 
@@ -845,7 +724,6 @@ function format_ledger($l){
 	return $ledger;
 }
 
-<<<<<<< HEAD
 
 function deal_logs($dealid){
 	$dbPrefix = $_SESSION['DB_PREFIX'];
@@ -981,143 +859,7 @@ function deal_details($deals){
 }
 
 
-=======
 
-function deal_logs($dealid){
-	$dbPrefix = $_SESSION['DB_PREFIX'];
-    $dbPrefix_curr = $_SESSION['DB_PREFIX_CURR'];
-    $dbPrefix_last = $_SESSION['DB_PREFIX_LAST'];
-
-    $sql_logs = "SELECT t.dt, t.type,u.realname AS caller_name, b.brkrnm AS sra_name, date_format(t.followupdt,'%d-%b') as followup_dt, t.remark FROM(
-	        	SELECT dealid, followupdate AS dt,'FIRSTCALL' AS `type`,  NULL AS callerid, Remark AS remark, NULL AS followupdt, NULL AS sraid FROM $dbPrefix_curr.tbxdealduedatefollowuplog WHERE dealid = $dealid
-	       		UNION
-	        	SELECT dealid, followupdate AS dt, 'CALLER' AS `type`, webuserid AS callerid, FollowupRemark AS remark, NxtFollowupDate AS followupdt, NULL AS sraid FROM $dbPrefix_curr.tbxdealfollowuplog WHERE dealid = $dealid
-				UNION
-				SELECT dealid, followupdate AS dt, 'INTERNAL' AS `type`,  webuserid AS callerid, FollowupRemark AS remark, NULL AS followupdt, sraid FROM $dbPrefix_curr.tbxsrafollowuplog WHERE dealid = $dealid
-				) t
-				LEFT JOIN ob_sa.tbmuser u ON t.callerid = u.userid
-				LEFT JOIN $dbPrefix.tbmbroker b ON t.sraid = b.brkrid AND b.brkrtyp = 2
-				ORDER BY dt DESC";
-
-  	$logs = executeSelect($sql_logs);
-  	return $logs;
-}
-
-
-function deal_ledger($dealid,$hpdt){
-	$dbPrefix = $_SESSION['DB_PREFIX'];
-    $dbPrefix_curr = $_SESSION['DB_PREFIX_CURR'];
-    $dbPrefix_last = $_SESSION['DB_PREFIX_LAST'];
-
-$q1 = "SELECT DueDt as Date, round(DueAmt) as Due, round(CollectionChrgs) as CC, round(DueAmt+CollectionChrgs) as Total, (case WHEN Duedt <= curdate() THEN 1 ELSE 0 END) as eligible  FROM ".$dbPrefix.".tbmduelist where dealid = $dealid order by Year(DueDt), Month(DueDt)";
-
-		$q2 = "";
-		$hp_mm = date("n", strtotime($hpdt));
-		$hp_yy= date("Y", strtotime($hpdt));
-		$startyy = ($hp_mm < 4 ? ($hp_yy-1) : $hp_yy);
-
-		for ($d = $startyy; $d <= date('Y'); $d++){
-			$db = "lksa".$d."".str_pad($d+1-2000, 2, '0', STR_PAD_LEFT);
-			$q2 .="
-			SELECT t1.sraid, b.brkrnm as sranm, t1.rcptdt as Date, round(sum(t2.rcptamt)) as Received, t1.rcptid, t1.rcptpaymode as mode, t1.CBFlg, t1.CBCCLFlg, t1.CCLflg, DATE_FORMAT(t1.cbdt, '%d-%b-%y') as cbdt, DATE_FORMAT(t1.ccldt, '%d-%b-%y') as  ccldt, t1.rmrk as Remarks, t1.cbrsn,
-		sum(case when dctyp = 101 then round(t2.rcptamt) ELSE 0 END) as EMI,
-		sum(case when dctyp = 102 then round(t2.rcptamt) ELSE 0 END) as Clearing, sum(case when dctyp = 103 then round(t2.rcptamt) ELSE 0 END) as CB,
-		sum(case when dctyp = 104 then round(t2.rcptamt) ELSE 0 END) as Penalty, sum(case when dctyp = 105 then round(t2.rcptamt) ELSE 0 END) as Seizing,
-		sum(case when dctyp = 107 then round(t2.rcptamt) ELSE 0 END) as Other, sum(case when dctyp = 111 then round(t2.rcptamt) ELSE 0 END) as CC
-		, v.reconind
-		FROM ".$db.".tbxdealrcpt t1 join ".$db.".tbxdealrcptdtl t2 on t1.rcptid = t2.rcptid and t1.dealid = $dealid
-		LEFT JOIN ".$db.".tbxacvoucher v on v.xrefid = t1.rcptid and v.rcptno = t1.rcptno and xreftyp = 1100 and acvchtyp = 4 and acxnsrno = 0
-		left join lksa.tbmbroker b on t1.sraid = b.brkrid group by t1.rcptid
-		UNION";
-		}
-
-		$q2 = rtrim($q2, "UNION");
-
-		$sql = "select * from (
-			SELECT 1 AS source, Date, DATE_FORMAT(Date, '%d-%b-%Y') as dDate, Due, Total as DueAmt, eligible, NULL as rDate, NULL AS Received, NULL AS rcptid, NULL as mode, NULL AS CBFlg, NULL AS CBCCLFlg, NULL AS CCLflg, NULL AS cbdt, NULL AS ccldt,  NULL as cbrsn, NULL as sranm, NULL AS Remarks, NULL AS rEMI, NULL AS Penalty, NULL AS Others, NULL as reconind FROM ($q1) as t1
-		UNION
-			SELECT 2 AS source, DATE, NULL as dDate, NULL AS Due, NULL AS DueAmt, NULL AS eligible, DATE_FORMAT(Date, '%d-%b-%Y') as rDate, Received, rcptid, mode, CBFlg, CBCCLFlg, CCLflg, cbdt, ccldt, cbrsn, sranm, Remarks, (EMI+CC) as rEMI, Penalty, (Clearing + CB + Seizing + Other) as Others, reconind FROM ($q2) as t2
-		) t order by Date, source";
-
-	$ledger = executeSelect($sql);
-	return $ledger;
-}
-
-
-function deal_details($deals){
-    $dbPrefix = $_SESSION['DB_PREFIX'];
-    $dbPrefix_curr = $_SESSION['DB_PREFIX_CURR'];
-    $dbPrefix_last = $_SESSION['DB_PREFIX_LAST'];
-
-		foreach($deals['result'] as $i=> $deal){
-			$dealid = $deal['dealid'];
-
-		    $sql_guarantor = "select tcase(GrtrNm) as name, tcase(concat(add1, ' ', add2, ' ', area, ' ', tahasil, ' ', city)) as address, mobile as mobile from ".$dbPrefix.".tbmdealguarantors where DealId=$dealid";
-			$guarantor = executeSelect($sql_guarantor);
-
-			$sql_assignment = "select fr.mm as month,fr.yy as year,fr.CallerId as caller_empid,e1.name as caller_name,e1.mobile as caller_phone,fr.SRAId as sra_id,e.name as sra_name,e.Mobile as sra_phone from ".$dbPrefix_curr.".tbxfieldrcvry fr join ".$dbPrefix.".tbmemployee e join ".$dbPrefix.".tbmemployee e1 on fr.SRAId = e.id and fr.CallerId = e1.id where fr.DealId=$dealid";
-			$assignment = executeSelect($sql_assignment);
-
-	 		$sql_otherphone = "select mobile, mobile2 from ".$dbPrefix.".tbmdeal where DealId=$dealid";
-			$otherphone = executeSelect($sql_otherphone);
-						 $rows=0;
-						 $ph = array();
-
-						 if($otherphone['row_count'] > 0){
-							$index=0;
-							if(isset($otherphone['result'][0]['mobile'])){
-								$ph[$index]= array();
-								$ph[$index]["name"]='Self';
-								$ph[$index]["relation"]='Self';
-								$ph[$index]["number"]=$otherphone['result'][0]['mobile'];
-								$index++;
-								$rows++;
-							}
-							if(isset($otherphone['result'][0]['mobile2'])){
-								$ph[$index]= array();
-								$ph[$index]["name"]='Self';
-								$ph[$index]["relation"]='Self';
-								$ph[$index]["number"]=$otherphone['result'][0]['mobile2'];
-								$rows++;
-
-							}
-					 	}
-			         	 $phones["row_count"]=$rows;
-					 	 $phones["found_rows"]=$rows;
-		 				 $phones['result']=$ph;
-
-			$ledger = deal_ledger($dealid,$deal['hpdt']);
-			$ledger1 = format_ledger($ledger);
-			$ledgers["row_count"]=$ledger['row_count'];
-			$ledgers["found_rows"]=$ledger['found_rows'];
-			$ledgers['result']=$ledger1;
-
-			$logs = deal_logs($dealid);
-
-	        $sql_dealcharges = "SELECT dctyp as type,round(ChrgsApplied-ChrgsRcvd) as amount FROM ".$dbPrefix.".tbmdealchrgs WHERE DealId=$dealid AND DcTyp NOT IN (101,102,111) AND ChrgsApplied > ChrgsRcvd GROUP BY Dctyp";
-	        $dealcharges = executeSelect($sql_dealcharges);
-
-	        $sql_bounce = "select concat(count(case when status=-1 then 1 end),'/',count(depositdt)) as bounced from ".$dbPrefix.".tbmpaytypedtl where active=2 and depositdt IS NOT NULL and dealid = $dealid";
-	        $bounce = executeSingleSelect($sql_bounce);
-
-	        $sql_seized = "select count(dealid)as seized from ".$dbPrefix_curr.".tbxvhclsz where dealid=$dealid";
-	        $seized = executeSingleSelect($sql_seized);
-
-	  		$deals['result'][$i]['bounce'] = $bounce;
-			$deals['result'][$i]['seized'] = $seized;
-			$deals['result'][$i]['phonenumbers'] = $phones;
-	   		$deals['result'][$i]['guarantor'] = $guarantor;
-			$deals['result'][$i]['dealcharges'] = $dealcharges;
-	  		$deals['result'][$i]['assignment'] = $assignment;
-			$deals['result'][$i]['ledger'] = $ledgers;
-			$deals['result'][$i]['logs'] = $logs;
-		}
-
-			return $deals;
-}
-
-
->>>>>>> origin/master
 function foreclosure($dealid){
 	$dbPrefix = $_SESSION['DB_PREFIX'];
 
