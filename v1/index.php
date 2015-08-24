@@ -5,27 +5,37 @@ require 'functions.php';
 
 $app = new Slim();
 
-$app->get('/register/:imei', 'register');
-$app->get('/registergcm/:gcmid', 'registerGcm');
-$app->get('/staticdata', 'getStaticData');
-$app->get('/contacts/:lastid', 'getContacts');
-$app->get('/deals/:page', 'getDeals');
-$app->get('/dashboards', 'getDashboards');
-$app->get('/daywisecollection', 'getDaywiseCollection');
-$app->get('/deal/:dealid', 'getDeal');
-$app->get('/deallogs/:dealid', 'getDealLogs');
-$app->get('/dealledgers/:dealid', 'getDealLedger');
-$app->get('/searchdeals/:page/:query', 'searchDeals');
-$app->get('/dues/:dealid/:foreclosure', 'getDues');
-$app->post('/postlogs', 'postLogs');
-$app->get('/rtoregno/:dealid/:regno/:nocflag', 'postRTORegNo');
-$app->get('/updateddeals/:lasttimestamp', 'getUpdatedDeals');
-$app->get('/notifications/:lastid', 'getNotifications');
-$app->post('/updateappinfo', 'updateAppInfo');
-$app->post('/updatelastlogin', 'updateLastLogin');
+$app->get('/register/:imei', 'register');  //01
+$app->get('/registergcm/:gcmid', 'registerGcm');  //02
+$app->get('/staticdata', 'getStaticData');  //03
+$app->get('/contacts/:lastid', 'getContacts');  //04
+$app->get('/deals/:page', 'getDeals');  //05
+$app->get('/dashboards', 'getDashboards');  //06
+$app->get('/notdepositedreceipts/:page', 'getNotDepositedReceipts');  //07 (Pending)
+$app->get('/deposithistory/:page', 'getDepositHistory');  //08 (Pending)
+$app->get('/daywisecollection', 'getDaywiseCollection');  //09
+$app->get('/searchdeals/:page/:query', 'searchDeals');  //10
+$app->get('/deal/:dealid', 'getDeal');  //11
+$app->post('/postlogs', 'postLogs');  //12
+$app->get('/dues/:dealid/:foreclosure', 'getDues');  //13
+$app->post('/postdues', 'postDues');  //14 (Pending)
+$app->get('/deallogs/:dealid', 'getDealLogs');  //15
+$app->get('/dealledgers/:dealid', 'getDealLedger');  //16
+$app->post('/postmobileno', 'postMobileNo');  //17 (Pending)
+$app->post('/postaddress', 'postAddress');  //18 (Pending)
+$app->get('/rtoregno/:dealid/:regno/:nocflag', 'postRTORegNo');  //19
+$app->post('/postbankdeposit', 'postBankDeposit');  //20 (Pending)
+$app->post('/updateappinfo', 'updateAppInfo');  //21
+$app->post('/updatelastlogin', 'updateLastLogin');  //22
+$app->get('/notifications/:lastid', 'getNotifications');  //23
+$app->get('/updateddeals/:lasttimestamp', 'getUpdatedDeals');  //24
+$app->post('/postdignosticlogs', 'PostDignosticLogs');  //25 (Pending)
+$app->post('/postescalation', 'PostEscalation');  //26 (Pending)
+$app->get('/sendsms', 'sendsms');
 
 $app->run();
 
+//01
 function register($imei){
 	$dbPrefix = $_SESSION['DB_PREFIX'];
     if (!ctype_digit($imei)){
@@ -55,6 +65,7 @@ function register($imei){
 }
 
 
+//02
 function registerGcm($gcmid){
 	$dbPrefix = $_SESSION['DB_PREFIX'];
 	$empid = 181;
@@ -87,6 +98,7 @@ function registerGcm($gcmid){
 }
 
 
+//03
 function getStaticData(){
     $dbPrefix = $_SESSION['DB_PREFIX'];
     $dbPrefix_curr = $_SESSION['DB_PREFIX_CURR'];
@@ -154,6 +166,7 @@ function getStaticData(){
 }
 
 
+//04
 function getContacts($lastid){
 	$dbPrefix = $_SESSION['DB_PREFIX'];
 
@@ -177,6 +190,7 @@ function getContacts($lastid){
 }
 
 
+//05
 function getDeals($page) {
     $dbPrefix = $_SESSION['DB_PREFIX'];
     $dbPrefix_curr = $_SESSION['DB_PREFIX_CURR'];
@@ -214,6 +228,7 @@ function getDeals($page) {
 }
 
 
+//06
 function getDashboards(){
     $dbPrefix = $_SESSION['DB_PREFIX'];
     $dbPrefix_curr = $_SESSION['DB_PREFIX_CURR'];
@@ -232,6 +247,32 @@ function getDashboards(){
 }
 
 
+//07
+function getNotDepositedReceipts($page){
+	$dbPrefix = $_SESSION['DB_PREFIX'];
+	$dbPrefix_curr = $_SESSION['DB_PREFIX_CURR'];
+	$dbPrefix_last = $_SESSION['DB_PREFIX_LAST'];
+	$limit = $_SESSION['API_ROW_LIMIT'];
+	$start = ($page-1) * $limit;
+
+	$sraid = 137;
+}
+
+
+//08
+function getDepositHistory($page){
+	$dbPrefix = $_SESSION['DB_PREFIX'];
+	$dbPrefix_curr = $_SESSION['DB_PREFIX_CURR'];
+	$dbPrefix_last = $_SESSION['DB_PREFIX_LAST'];
+	$limit = $_SESSION['API_ROW_LIMIT'];
+	$start = ($page-1) * $limit;
+
+	$sraid = 137;
+
+}
+
+
+//09
 function getDaywiseCollection(){
     $dbPrefix_curr = $_SESSION['DB_PREFIX_CURR'];
     $sraid = 137;
@@ -255,87 +296,7 @@ function getDaywiseCollection(){
 }
 
 
-function getDeal($dealid) {
-	$dbPrefix = $_SESSION['DB_PREFIX'];
-    $dbPrefix_curr = $_SESSION['DB_PREFIX_CURR'];
-    $dbPrefix_last = $_SESSION['DB_PREFIX_LAST'];
-
-	$sql = "select sql_calc_found_rows fr.dealid, fr.dealid, fr.dealno, tcase(fr.dealnm) as name,tcase(d.centre) as centre, tcase(fr.area) as area, tcase(fr.city) as city, tcase(fr.address) as address, fr.mobile, DATE_FORMAT(fr.hpdt, '%d-%m-%Y') as hpdt, round(fr.dueamt) as total_due,round(fr.OdDueAmt) as overdue, fr.dd as assigned_on, DATE_FORMAT(fr.CallerFollowupDt,'%d-%m-%Y') as caller_followup_dt,DATE_FORMAT(fr.SRAFollowupDt,'%d-%m-%Y') as sra_followup_dt, fr.rgid as bucket,round(d.financeamt) as finance_amt,round(fr.emi) as emi,d.period as tenure,DATE_FORMAT(d.hpexpdt, '%d-%m-%Y') as expiry_dt, DATE_FORMAT(d.startduedt, '%d') as emi_day, (case when d.paytype=1 then 'PDC' when d.paytype=2 then 'ECS' when d.paytype=3 then 'Direct Debit' end) as type, tcase(concat(dv.make, ' ', dv.model)) as vehicle_model, dv.VhclColour as vehicle_color, dv.Chasis as vehicle_chasis_no, dv.EngineNo as vehicle_engine_no, dv.RTORegNo as vehicle_rto_reg_no, tcase(b.BrkrNm) as dealer, tcase(trim(concat(ifnull(b.city,''), ' ', case when b.centre != b.city then b.centre else '' end))) as dealer_loc, fr.SalesmanId as salesman_id
-	FROM ".$dbPrefix_curr.".tbxfieldrcvry fr
-	join ".$dbPrefix.".tbmdeal d
-	join ".$dbPrefix.".tbmdealvehicle dv
-	join ".$dbPrefix.".tbmbroker b
-	on fr.dealid = d.dealid and fr.dealid=dv.dealid and d.brkrid = b.brkrid where fr.mm = ".date('n')." and fr.dealid = $dealid ORDER BY fr.dd desc";
-	$deal = executeSelect($sql);
-
-	$deal = deal_details($deal);
-
-		$response = array();
-			if($deal['row_count']>0){
-				$response["success"] = 1;
- 			}
-			else{
-				$response["success"] = 0;
-				$response["message"] = 'deal does not exist';
-				echo json_encode($response);
-				return;
-			}
-		$response["deal"] = $deal;
-		echo json_encode($response);
-}
-
-
-function getDealLogs($dealid) {
-
-   	$logs = deal_logs($dealid);
-
-	$response = array();
-	if($logs['row_count']>0){
-	    $response["success"] = 1;
-	}
-	else{
-		$response["success"] = 0;
-		$response["message"] = 'Logs does not exist';
-		echo json_encode($response);
-		return;
-	}
-	$response["logs"] = $logs;
-	echo json_encode($response);
-}
-
-
-function getDealLedger($dealid) {
-    $dbPrefix_curr = $_SESSION['DB_PREFIX_CURR'];
-
-    $sql_hpdt = "select DATE_FORMAT(hpdt, '%d-%m-%Y') as hpdt
-		FROM ".$dbPrefix_curr.".tbxfieldrcvry
-	    where mm = ".date('n')." and dealid = $dealid
-		ORDER BY dd desc";
-	$hpdt = executeSingleSelect($sql_hpdt);
-
- 	$response = array();
-	if (isset($hpdt)) {
-
-        $ledger = deal_ledger($dealid,$hpdt);
-
-		$ledger1 = format_ledger($ledger);
-		$ledgers["row_count"]=$ledger['row_count'];
-	    $ledgers["found_rows"]=$ledger['found_rows'];
-		$ledgers['result']=$ledger1;
-
-	    $response["success"] = 1;
-	}
-	else{
-		$response["success"] = 0;
-		$response["message"] = 'Ledgers does not exist';
-		echo json_encode($response);
-		return;
-	}
-	$response["ledgers"] = $ledgers;
-	echo json_encode($response);
-}
-
-
+//10
 function searchDeals($page,$query){
 	$dbPrefix = $_SESSION['DB_PREFIX'];
 	$dbPrefix_curr = $_SESSION['DB_PREFIX_CURR'];
@@ -380,40 +341,38 @@ function searchDeals($page,$query){
 }
 
 
-function getDues($dealid,$foreclosure){
+//11
+function getDeal($dealid) {
 	$dbPrefix = $_SESSION['DB_PREFIX'];
+    $dbPrefix_curr = $_SESSION['DB_PREFIX_CURR'];
+    $dbPrefix_last = $_SESSION['DB_PREFIX_LAST'];
 
-	 $sql_dues = "SELECT dctyp as type,round(ChrgsApplied-ChrgsRcvd) as amount FROM ".$dbPrefix.".tbmdealchrgs WHERE DealId=$dealid AND DcTyp NOT IN (101,102,111) AND ChrgsApplied > ChrgsRcvd GROUP BY Dctyp";
+	$sql = "select sql_calc_found_rows fr.dealid, fr.dealid, fr.dealno, tcase(fr.dealnm) as name,tcase(d.centre) as centre, tcase(fr.area) as area, tcase(fr.city) as city, tcase(fr.address) as address, fr.mobile, DATE_FORMAT(fr.hpdt, '%d-%m-%Y') as hpdt, round(fr.dueamt) as total_due,round(fr.OdDueAmt) as overdue, fr.dd as assigned_on, DATE_FORMAT(fr.CallerFollowupDt,'%d-%m-%Y') as caller_followup_dt,DATE_FORMAT(fr.SRAFollowupDt,'%d-%m-%Y') as sra_followup_dt, fr.rgid as bucket,round(d.financeamt) as finance_amt,round(fr.emi) as emi,d.period as tenure,DATE_FORMAT(d.hpexpdt, '%d-%m-%Y') as expiry_dt, DATE_FORMAT(d.startduedt, '%d') as emi_day, (case when d.paytype=1 then 'PDC' when d.paytype=2 then 'ECS' when d.paytype=3 then 'Direct Debit' end) as type, tcase(concat(dv.make, ' ', dv.model)) as vehicle_model, dv.VhclColour as vehicle_color, dv.Chasis as vehicle_chasis_no, dv.EngineNo as vehicle_engine_no, dv.RTORegNo as vehicle_rto_reg_no, tcase(b.BrkrNm) as dealer, tcase(trim(concat(ifnull(b.city,''), ' ', case when b.centre != b.city then b.centre else '' end))) as dealer_loc, fr.SalesmanId as salesman_id
+	FROM ".$dbPrefix_curr.".tbxfieldrcvry fr
+	join ".$dbPrefix.".tbmdeal d
+	join ".$dbPrefix.".tbmdealvehicle dv
+	join ".$dbPrefix.".tbmbroker b
+	on fr.dealid = d.dealid and fr.dealid=dv.dealid and d.brkrid = b.brkrid where fr.mm = ".date('n')." and fr.dealid = $dealid ORDER BY fr.dd desc";
+	$deal = executeSelect($sql);
 
-     $dues = executeSelect($sql_dues);
+	$deal = deal_details($deal);
 
-     foreach($dues['result'] as $i=> $amt){
-   	 $amount = $amt['amount'];
-
-    	   $foreclosure_amt = foreclosure($dealid)+$amount;
-    	 //$foreclosure_amt = foreclosure($dealid);
-
-		 if($foreclosure == 1){
-		     $dues['result'][$i]['foreclosure_amt'] = $foreclosure_amt;
-		 }
-
-     }
-
-     $response = array();
-	 	if($dues['row_count']>0){
-	 	    $response["success"] = 1;
-	 	}
-	 	else{
-	 		$response["success"] = 0;
-	 		$response["message"] = 'Dues does not exist';
-	 		echo json_encode($response);
-	 		return;
-	 	}
-	 	$response["dues"] = $dues;
-	echo json_encode($response);
+		$response = array();
+			if($deal['row_count']>0){
+				$response["success"] = 1;
+ 			}
+			else{
+				$response["success"] = 0;
+				$response["message"] = 'deal does not exist';
+				echo json_encode($response);
+				return;
+			}
+		$response["deal"] = $deal;
+		echo json_encode($response);
 }
 
 
+//12
 function postLogs(){
 	$dbPrefix_curr = $_SESSION['DB_PREFIX_CURR'];
 	$request = Slim::getInstance()->request();
@@ -487,6 +446,113 @@ function postLogs(){
 }
 
 
+//13
+function getDues($dealid,$foreclosure){
+	$dbPrefix = $_SESSION['DB_PREFIX'];
+
+	 $sql_dues = "SELECT dctyp as type,round(ChrgsApplied-ChrgsRcvd) as amount FROM ".$dbPrefix.".tbmdealchrgs WHERE DealId=$dealid AND DcTyp NOT IN (101,102,111) AND ChrgsApplied > ChrgsRcvd GROUP BY Dctyp";
+
+     $dues = executeSelect($sql_dues);
+
+     foreach($dues['result'] as $i=> $amt){
+   	 $amount = $amt['amount'];
+
+    	   $foreclosure_amt = foreclosure($dealid)+$amount;
+    	 //$foreclosure_amt = foreclosure($dealid);
+
+		 if($foreclosure == 1){
+		     $dues['result'][$i]['foreclosure_amt'] = $foreclosure_amt;
+		 }
+
+     }
+
+     $response = array();
+	 	if($dues['row_count']>0){
+	 	    $response["success"] = 1;
+	 	}
+	 	else{
+	 		$response["success"] = 0;
+	 		$response["message"] = 'Dues does not exist';
+	 		echo json_encode($response);
+	 		return;
+	 	}
+	 	$response["dues"] = $dues;
+	echo json_encode($response);
+}
+
+
+//14
+function postDues(){
+
+}
+
+
+//15
+function getDealLogs($dealid) {
+
+   	$logs = deal_logs($dealid);
+
+	$response = array();
+	if($logs['row_count']>0){
+	    $response["success"] = 1;
+	}
+	else{
+		$response["success"] = 0;
+		$response["message"] = 'Logs does not exist';
+		echo json_encode($response);
+		return;
+	}
+	$response["logs"] = $logs;
+	echo json_encode($response);
+}
+
+
+//16
+function getDealLedger($dealid) {
+    $dbPrefix_curr = $_SESSION['DB_PREFIX_CURR'];
+
+    $sql_hpdt = "select DATE_FORMAT(hpdt, '%d-%m-%Y') as hpdt
+		FROM ".$dbPrefix_curr.".tbxfieldrcvry
+	    where mm = ".date('n')." and dealid = $dealid
+		ORDER BY dd desc";
+	$hpdt = executeSingleSelect($sql_hpdt);
+
+ 	$response = array();
+	if (isset($hpdt)) {
+
+        $ledger = deal_ledger($dealid,$hpdt);
+
+		$ledger1 = format_ledger($ledger);
+		$ledgers["row_count"]=$ledger['row_count'];
+	    $ledgers["found_rows"]=$ledger['found_rows'];
+		$ledgers['result']=$ledger1;
+
+	    $response["success"] = 1;
+	}
+	else{
+		$response["success"] = 0;
+		$response["message"] = 'Ledgers does not exist';
+		echo json_encode($response);
+		return;
+	}
+	$response["ledgers"] = $ledgers;
+	echo json_encode($response);
+}
+
+
+//17
+function postMobileNo(){
+
+}
+
+
+//18
+function postAddress(){
+
+}
+
+
+//19
 function postRTORegNo($dealid,$regno,$nocflag) {
     $dbPrefix = $_SESSION['DB_PREFIX'];
     $dbPrefix_curr = $_SESSION['DB_PREFIX_CURR'];
@@ -546,6 +612,109 @@ function postRTORegNo($dealid,$regno,$nocflag) {
 }
 
 
+//20
+function postBankDeposit(){
+
+}
+
+
+//21
+function updateAppInfo(){
+	$dbPrefix = $_SESSION['DB_PREFIX'];
+	$request = Slim::getInstance()->request();
+
+	$sraid = 137;
+	$imei = $request->params('imei');
+	$appversion = $request->params('appversion');
+	$appinstalldt = $request->params('appinstalldt');
+	$applastupdatedt = $request->params('applastupdatedt');
+
+	if (!preg_match("/^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[1-2][0-9]|3[0-1])$/",$appinstalldt)){
+			$response["success"] = 0;
+			$response["message"] = 'App Install date is not correct';
+	}
+	else if (!preg_match("/^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[1-2][0-9]|3[0-1])$/",$applastupdatedt)){
+			$response["success"] = 0;
+			$response["message"] = 'App last update date is not correct';
+	}
+	else{
+		$sql_update = "update ".$dbPrefix.".tbmdevices set appversion = '$appversion',appinstalldt = '$appinstalldt',applastupdatedt = '$applastupdatedt' where empid=$sraid and imei=$imei";
+		$affectedrows = executeUpdate($sql_update);
+
+		$response = array();
+		if($affectedrows>0){
+			$response["success"] = 1;
+			$response["message"] = 'Successfully Updated';
+		}else{
+			$response["success"] = 0;
+			$response["message"] = 'Failed to update Or already updated';
+		}
+
+	}
+
+	echo json_encode($response);
+}
+
+
+//22
+function updateLastLogin(){
+
+	$dbPrefix = $_SESSION['DB_PREFIX'];
+	$request = Slim::getInstance()->request();
+
+	$sraid = 137;
+	$imei = $request->params('imei');
+	$lastlogindt = $request->params('lastlogindt');
+	$usagetime = $request->params('usagetime');
+
+	if (!preg_match("/^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[1-2][0-9]|3[0-1])$/",$lastlogindt)){
+			$response["success"] = 0;
+			$response["message"] = 'Last login date is not correct';
+	}
+	else{
+		$sql_update = "update ".$dbPrefix.".tbmdevices set lastlogindt = '$lastlogindt',usagetime = '$usagetime' where EmpId=$sraid and imei = $imei";
+		$affectedrows = executeUpdate($sql_update);
+
+		$response = array();
+		if($affectedrows>0){
+			$response["success"] = 1;
+			$response["message"] = 'Successfully Updated';
+		}else{
+			$response["success"] = 0;
+			$response["message"] = 'Failed to update Or already updated';
+		}
+
+	}
+
+	echo json_encode($response);
+}
+
+
+//23
+function getNotifications($lastid){
+	$dbPrefix = $_SESSION['DB_PREFIX'];
+
+	$sraid = 137;
+
+	$sql = "select PkId as id,message,case when messagetype = 1 then 'R' when messagetype = 2 then 'S' when messagetype = 3 then 'O' end as message_type,DATE_FORMAT(inserttimestamp,'%d-%M %H:%i') as dt from ".$dbPrefix.".tbmnotification where empid = $sraid and pkid>$lastid ORDER BY inserttimestamp DESC";
+	$notifications = executeSelect($sql);
+
+		$response = array();
+		if($notifications['row_count']>0){
+		    $response["success"] = 1;
+		}
+		else{
+			$response["success"] = 0;
+			$response["message"] = 'notifications does not exist';
+			echo json_encode($response);
+			return;
+		}
+	$response["notifications"] = $notifications;
+	echo json_encode($response);
+}
+
+
+//24
 function getUpdatedDeals($lasttimestamp){
 	$dbPrefix = $_SESSION['DB_PREFIX'];
 	$dbPrefix_curr = $_SESSION['DB_PREFIX_CURR'];
@@ -579,101 +748,23 @@ function getUpdatedDeals($lasttimestamp){
 }
 
 
-function getNotifications($lastid){
-	$dbPrefix = $_SESSION['DB_PREFIX'];
+//25
+function PostDignosticLogs(){
 
-	$sraid = 137;
-
-	$sql = "select PkId as id,message,case when messagetype = 1 then 'R' when messagetype = 2 then 'S' when messagetype = 3 then 'O' end as message_type,DATE_FORMAT(inserttimestamp,'%d-%M %H:%i') as dt from ".$dbPrefix.".tbmnotification where empid = $sraid and pkid>$lastid ORDER BY inserttimestamp DESC";
-	$notifications = executeSelect($sql);
-
-		$response = array();
-		if($notifications['row_count']>0){
-		    $response["success"] = 1;
-		}
-		else{
-			$response["success"] = 0;
-			$response["message"] = 'notifications does not exist';
-			echo json_encode($response);
-			return;
-		}
-	$response["notifications"] = $notifications;
-	echo json_encode($response);
 }
 
 
-function updateAppInfo(){
-	$dbPrefix = $_SESSION['DB_PREFIX'];
-	$request = Slim::getInstance()->request();
+//26
+function PostEscalation(){
 
-	$sraid = 137;
-	$imei = $request->params('imei');
-	$appversion = $request->params('appversion');
-	$appinstalldt = $request->params('appinstalldt');
-	$applastupdatedt = $request->params('applastupdatedt');
-
-
-	if (!preg_match("/^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[1-2][0-9]|3[0-1])$/",$appinstalldt)){
-			$response["success"] = 0;
-			$response["message"] = 'App Install date is not correct';
-	}
-	else if (!preg_match("/^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[1-2][0-9]|3[0-1])$/",$applastupdatedt)){
-			$response["success"] = 0;
-			$response["message"] = 'App last update date is not correct';
-	}
-	else{
-		$sql_update = "update ".$dbPrefix.".tbmdevices set appversion = '$appversion',appinstalldt = '$appinstalldt',applastupdatedt = '$applastupdatedt' where empid=$sraid and imei=$imei";
-		$affectedrows = executeUpdate($sql_update);
-
-		$response = array();
-		if($affectedrows>0){
-			$response["success"] = 1;
-			$response["message"] = 'Successfully Updated';
-		}else{
-			$response["success"] = 0;
-			$response["message"] = 'Failed to update Or already updated';
-		}
-
-	}
-
-	echo json_encode($response);
 }
 
-
-function updateLastLogin(){
-
-	$dbPrefix = $_SESSION['DB_PREFIX'];
-	$request = Slim::getInstance()->request();
-
-	$sraid = 137;
-	$imei = $request->params('imei');
-	$lastlogindt = $request->params('lastlogindt');
-	$usagetime = $request->params('usagetime');
-
-
-	if (!preg_match("/^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[1-2][0-9]|3[0-1])$/",$lastlogindt)){
-			$response["success"] = 0;
-			$response["message"] = 'Last login date is not correct';
-	}
-	else{
-		$sql_update = "update ".$dbPrefix.".tbmdevices set lastlogindt = '$lastlogindt',usagetime = '$usagetime' where EmpId=$sraid and imei = $imei";
-		$affectedrows = executeUpdate($sql_update);
-
-		$response = array();
-		if($affectedrows>0){
-			$response["success"] = 1;
-			$response["message"] = 'Successfully Updated';
-		}else{
-			$response["success"] = 0;
-			$response["message"] = 'Failed to update Or already updated';
-		}
-
-	}
-
-	echo json_encode($response);
+function sendsms(){
+	$str = implode(",",$_REQUEST);
+	$file = 'sms.txt';
+	file_put_contents($file, $str, FILE_APPEND);
+	echo "Done";
 }
-
-
 
 
 
