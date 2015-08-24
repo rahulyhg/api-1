@@ -61,6 +61,7 @@ function executeSingleSelect($q){
         return $value;
 }
 
+
 function executeUpdate($q){
         $conn = connect();
         $result = mysqli_query($conn, $q) or die(mysqli_error($conn)." DB Error at line ". __LINE__ . " in file " . __FILE__);
@@ -68,6 +69,22 @@ function executeUpdate($q){
         mysqli_close($conn);
         return $value;
 }
+
+
+function executeInsert($q){
+        $conn = connect();
+        $result = mysqli_query($conn, $q);
+		$value = mysqli_insert_id($conn);
+        mysqli_close($conn);
+        return $value;
+}
+
+
+
+
+
+
+
 
 function startsWith($haystack, $needle){return $needle === "" || strpos($haystack, $needle) === 0;}
 
@@ -101,7 +118,11 @@ function convertdatetime($gmttime, $pattern=null, $timezoneRequired ='Asia/Calcu
     return $timestamp;
 }
 
+
+
+
 function validEmail($email){
+
    $isValid = true;
    $atIndex = strrpos($email, "@");
    if (is_bool($atIndex) && !$atIndex){

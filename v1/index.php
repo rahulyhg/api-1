@@ -64,7 +64,6 @@ function register($imei){
 	echo json_encode($response);
 }
 
-
 //02
 function registerGcm($gcmid){
 	$dbPrefix = $_SESSION['DB_PREFIX'];
@@ -404,6 +403,7 @@ function postLogs(){
 
 	else{
 	    $sql = "INSERT INTO ".$dbPrefix_curr.".tbxdealfollowuplog (DealId,FollowupDate,NxtFollowupDate,FollowupRemark,WebUserId,LogType,TagId) VALUES ($dealid, '$followup_dt','$nextfollowup_dt', '$remark',$sraid, $logtype,$tagid)";
+
 	    $lastid = executeInsert($sql);
 
 		$response = array();
