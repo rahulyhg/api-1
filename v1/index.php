@@ -5,8 +5,9 @@ require 'functions.php';
 
 $app = new Slim();
 
+$app->post('/login', 'login');  //00
 $app->get('/register/:imei', 'register');  //01
-$app->get('/registergcm/:gcmid', 'registerGcm');  //02
+$app->get('/registergcm/:imei/:gcmid', 'registerGcm');  //02
 $app->get('/staticdata', 'getStaticData');  //03
 $app->get('/contacts/:lastid', 'getContacts');  //04
 $app->get('/deals/:page', 'getDeals');  //05
@@ -35,17 +36,52 @@ $app->get('/sendsms', 'sendsms');
 
 $app->run();
 
+//00
+function login(){
+	$dbPrefix = $_SESSION['DB_PREFIX'];
+	$request = Slim::getInstance()->request();
+
+	$pin = $request->params('pin');
+	$imei = $request->params('imei');
+
+	if (!ctype_digit($pin)){
+			$response["success"] = 0;
+			$response["message"] = 'pin number is not valid';
+			echo json_encode($response);
+			return;
+	}
+	if (!ctype_digit($imei)){
+			$response["success"] = 0;
+			$response["message"] = 'Imei number is not valid';
+			echo json_encode($response);
+			return;
+	}
+	$sql = "select empid from ".$dbPrefix.".tbmdevices where apppin = $pin and imei = $imei";
+	$empid = executeSingleSelect($sql);
+
+	$response = array();
+		if($empid>0){
+		    $_SESSION['userid'] = $empid;
+		 	$response["success"] = 1;
+		 	$response["message"] = 'Successfully Logged In';
+		}
+		else{
+			$response["success"] = 0;
+			$response["message"] = 'Login Failed!';
+		}
+		echo json_encode($response);
+}
+
+
 //01
 function register($imei){
 	$dbPrefix = $_SESSION['DB_PREFIX'];
     if (!ctype_digit($imei)){
     	$response["success"] = 0;
-		$response["message"] = 'imei id is not valid';
+		$response["message"] = 'imei number is not valid';
 		echo json_encode($response);
-
 		return;
 	}
-
 	$sql = "select e.id,tcase(e.name) as name,null as pin,e.mobile,null as email,null as photo_url,e.department,e.designation,e.role,tcase(e.centre) as centre,null as wallet_limit,null as printer_id,null as app_version,null as admin_dsn,null as service_url from ".$dbPrefix.".tbmemployee e join ".$dbPrefix.".tbmdevices d on e.id = d.empid where d.imei = '$imei' and e.active=1";
 
 	$emp = executeSelect($sql);
@@ -53,6 +89,7 @@ function register($imei){
 	$response = array();
 	if($emp['row_count']>0){
 	    $response["success"] = 1;
+	    $_SESSION['userid'] = $emp['result'][0]['id'];
 	}
 	else{
 		$response["success"] = 0;
@@ -64,24 +101,34 @@ function register($imei){
 	echo json_encode($response);
 }
 
-//02
-function registerGcm($gcmid){
-	$dbPrefix = $_SESSION['DB_PREFIX'];
-	$empid = 181;
 
-	if(!isset($empid)){
+//02
+function registerGcm($imei,$gcmid){
+	$dbPrefix = $_SESSION['DB_PREFIX'];
+	//$empid = 181;
+	if(!isset($_SESSION['userid'])){
 		$response["success"] = 0;
-		$response["message"] = 'Employee does not exist';
+		$response["message"] = 'Your session has been expired please login again';
+		echo json_encode($response);
+		return;
+	}
+	else{
+	  	$empid = $_SESSION['userid'];
+	}
+
+	if (!ctype_digit($imei)){
+		$response["success"] = 0;
+		$response["message"] = 'Imei number is not valid';
 		echo json_encode($response);
 		return;
 	}
     if(!ctype_alnum($gcmid)){
     	$response["success"] = 0;
-		$response["message"] = 'gcmid is not valid';
+		$response["message"] = 'Gcmid is not valid';
 		echo json_encode($response);
 		return;
 	}
-	$sql_update = "update ".$dbPrefix.".tbmdevices set gcmid = '$gcmid' where empid=$empid";
+	$sql_update = "update ".$dbPrefix.".tbmdevices set gcmid = '$gcmid' where empid=$empid and imei=$imei";
 	$affectedrows = executeUpdate($sql_update);
 
 	$response = array();
@@ -102,6 +149,8 @@ function getStaticData(){
     $dbPrefix = $_SESSION['DB_PREFIX'];
     $dbPrefix_curr = $_SESSION['DB_PREFIX_CURR'];
     $dbPrefix_last = $_SESSION['DB_PREFIX_LAST'];
+
+    //session_destroy();
 
     $sql = "select sql_calc_found_rows bankid,banknm from ".$dbPrefix.".tbmsourcebank";
 	$bank = executeSelect($sql);
@@ -197,7 +246,17 @@ function getDeals($page) {
 	$limit = $_SESSION['API_ROW_LIMIT'];
 	$start = ($page-1) * $limit;
 
-	$sraid = 137;
+	//$sraid = 137;
+	if(!isset($_SESSION['userid'])){
+		$response["success"] = 0;
+		$response["message"] = 'Your session has been expired please login again';
+		echo json_encode($response);
+		return;
+	}
+	else{
+		$sraid = $_SESSION['userid'];
+	}
+
 
     $sql = "select sql_calc_found_rows fr.dealid, fr.dealid, fr.dealno, tcase(fr.dealnm) as name,tcase(d.centre) as centre, tcase(fr.area) as area, tcase(fr.city) as city, tcase(fr.address) as address, fr.mobile, DATE_FORMAT(fr.hpdt, '%d-%m-%Y') as hpdt, round(fr.dueamt) as total_due,round(fr.OdDueAmt) as overdue, fr.dd as assigned_on, DATE_FORMAT(fr.CallerFollowupDt,'%d-%m-%Y') as caller_followup_dt,DATE_FORMAT(fr.SRAFollowupDt,'%d-%m-%Y') as sra_followup_dt, fr.rgid as bucket,round(d.financeamt) as finance_amt,round(fr.emi) as emi,d.period as tenure,DATE_FORMAT(d.hpexpdt, '%d-%m-%Y') as expiry_dt, DATE_FORMAT(d.startduedt, '%d') as emi_day, (case when d.paytype=1 then 'PDC' when d.paytype=2 then 'ECS' when d.paytype=3 then 'Direct Debit' end) as type, tcase(concat(dv.make, ' ', dv.model)) as vehicle_model, dv.VhclColour as vehicle_color, dv.Chasis as vehicle_chasis_no, dv.EngineNo as vehicle_engine_no, dv.RTORegNo as vehicle_rto_reg_no, tcase(b.BrkrNm) as dealer, tcase(trim(concat(ifnull(b.city,''), ' ', case when b.centre != b.city then b.centre else '' end))) as dealer_loc, fr.SalesmanId as salesman_id
 	FROM ".$dbPrefix_curr.".tbxfieldrcvry fr
@@ -232,8 +291,18 @@ function getDashboards(){
     $dbPrefix = $_SESSION['DB_PREFIX'];
     $dbPrefix_curr = $_SESSION['DB_PREFIX_CURR'];
     $dbPrefix_last = $_SESSION['DB_PREFIX_LAST'];
-//  $sraid = $_SESSION['userid']; this is a comment - Another comment
-	$sraid = 137;
+  //$sraid = $_SESSION['userid']; this is a comment - Another comment
+  //$sraid = 137;
+
+	if(!isset($_SESSION['userid'])){
+		$response["success"] = 0;
+		$response["message"] = 'Your session has been expired please login again';
+		echo json_encode($response);
+		return;
+	}
+	else{
+		$sraid = $_SESSION['userid'];
+	}
 
 	$sql = "SELECT * FROM (
 	SELECT yy, mm, sraid as empid, sranm as empname, collection, od, penalty, bouncing, others, assigned_fd, recovered_fd, assigned_dm, recovered_dm, assigned, recovered, assigned_b1, recovered_b1, assigned_b2, recovered_b2, assigned_b3, recovered_b3, assigned_b4, recovered_b4, assigned_b5, recovered_b5, assigned_b6, recovered_b6, target_fd FROM ".$dbPrefix_curr.".tbxdashboard WHERE sraid = $sraid
@@ -254,7 +323,8 @@ function getNotDepositedReceipts($page){
 	$limit = $_SESSION['API_ROW_LIMIT'];
 	$start = ($page-1) * $limit;
 
-	$sraid = 137;
+	//$sraid = 137;
+
 }
 
 
@@ -266,7 +336,7 @@ function getDepositHistory($page){
 	$limit = $_SESSION['API_ROW_LIMIT'];
 	$start = ($page-1) * $limit;
 
-	$sraid = 137;
+	//$sraid = 137;
 
 }
 
@@ -274,7 +344,17 @@ function getDepositHistory($page){
 //09
 function getDaywiseCollection(){
     $dbPrefix_curr = $_SESSION['DB_PREFIX_CURR'];
-    $sraid = 137;
+    //$sraid = 137;
+
+    if(!isset($_SESSION['userid'])){
+		$response["success"] = 0;
+		$response["message"] = 'Your session has been expired please login again';
+		echo json_encode($response);
+		return;
+	}
+	else{
+		$sraid = $_SESSION['userid'];
+	}
 
     $sql = "select count(distinct dealid) as recovered_cases,round(sum(TotRcptAmt)) as amount,date_format(rcptdt,'%d-%b') as dt from ".$dbPrefix_curr.".tbxdealrcpt where RcptPayMode=1 and CclFlg = 0 and sraid=$sraid group by rcptdt order by rcptdt desc limit 31";
 
@@ -303,7 +383,16 @@ function searchDeals($page,$query){
 	$limit = $_SESSION['API_ROW_LIMIT'];
 	$start = ($page-1) * $limit;
 
-	$sraid = 137;
+	//$sraid = 137;
+	if(!isset($_SESSION['userid'])){
+		$response["success"] = 0;
+		$response["message"] = 'Your session has been expired please login again';
+		echo json_encode($response);
+		return;
+	}
+	else{
+		$sraid = $_SESSION['userid'];
+	}
 
 	if (!ctype_alnum($query)){
 		$response["success"] = 0;
@@ -376,7 +465,17 @@ function postLogs(){
 	$dbPrefix_curr = $_SESSION['DB_PREFIX_CURR'];
 	$request = Slim::getInstance()->request();
 
-	$sraid = 137;
+	//$sraid = 137;
+	if(!isset($_SESSION['userid'])){
+		$response["success"] = 0;
+		$response["message"] = 'Your session has been expired please login again';
+		echo json_encode($response);
+		return;
+	}
+	else{
+		$sraid = $_SESSION['userid'];
+	}
+
 	$followup_dt = date('Y-m-d');
 	$dealid = $request->params('dealid');
 	$nextfollowup_dt = $request->params('nextfollowup_dt');
@@ -463,9 +562,7 @@ function getDues($dealid,$foreclosure){
 		 if($foreclosure == 1){
 		     $dues['result'][$i]['foreclosure_amt'] = $foreclosure_amt;
 		 }
-
-     }
-
+	 }
      $response = array();
 	 	if($dues['row_count']>0){
 	 	    $response["success"] = 1;
@@ -623,7 +720,17 @@ function updateAppInfo(){
 	$dbPrefix = $_SESSION['DB_PREFIX'];
 	$request = Slim::getInstance()->request();
 
-	$sraid = 137;
+	//$sraid = 137;
+	if(!isset($_SESSION['userid'])){
+		$response["success"] = 0;
+		$response["message"] = 'Your session has been expired please login again';
+		echo json_encode($response);
+		return;
+	}
+	else{
+		$sraid = $_SESSION['userid'];
+	}
+
 	$imei = $request->params('imei');
 	$appversion = $request->params('appversion');
 	$appinstalldt = $request->params('appinstalldt');
@@ -662,7 +769,17 @@ function updateLastLogin(){
 	$dbPrefix = $_SESSION['DB_PREFIX'];
 	$request = Slim::getInstance()->request();
 
-	$sraid = 137;
+	//$sraid = 137;
+	if(!isset($_SESSION['userid'])){
+		$response["success"] = 0;
+		$response["message"] = 'Your session has been expired please login again';
+		echo json_encode($response);
+		return;
+	}
+	else{
+		$sraid = $_SESSION['userid'];
+	}
+
 	$imei = $request->params('imei');
 	$lastlogindt = $request->params('lastlogindt');
 	$usagetime = $request->params('usagetime');
@@ -694,7 +811,16 @@ function updateLastLogin(){
 function getNotifications($lastid){
 	$dbPrefix = $_SESSION['DB_PREFIX'];
 
-	$sraid = 137;
+	//$sraid = 137;
+	if(!isset($_SESSION['userid'])){
+		$response["success"] = 0;
+		$response["message"] = 'Your session has been expired please login again';
+		echo json_encode($response);
+		return;
+	}
+	else{
+		$sraid = $_SESSION['userid'];
+	}
 
 	$sql = "select PkId as id,message,case when messagetype = 1 then 'R' when messagetype = 2 then 'S' when messagetype = 3 then 'O' end as message_type,DATE_FORMAT(inserttimestamp,'%d-%M %H:%i') as dt from ".$dbPrefix.".tbmnotification where empid = $sraid and pkid>$lastid ORDER BY inserttimestamp DESC";
 	$notifications = executeSelect($sql);
@@ -720,7 +846,16 @@ function getUpdatedDeals($lasttimestamp){
 	$dbPrefix_curr = $_SESSION['DB_PREFIX_CURR'];
 	$dbPrefix_last = $_SESSION['DB_PREFIX_LAST'];
 
-	$sraid = 137;
+	//$sraid = 137;
+	if(!isset($_SESSION['userid'])){
+		$response["success"] = 0;
+		$response["message"] = 'Your session has been expired please login again';
+		echo json_encode($response);
+		return;
+	}
+	else{
+		$sraid = $_SESSION['userid'];
+	}
 
 	if (!DateTime::createFromFormat('Y-m-d H:i:s', $lasttimestamp) !== FALSE) {
 	 		$response["success"] = 0;
