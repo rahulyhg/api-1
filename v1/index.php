@@ -18,7 +18,7 @@ $app->get('/daywisecollection', 'getDaywiseCollection');  //09
 $app->get('/searchdeals/:query/:page', 'searchDeals');  //10
 $app->get('/deal/:dealid', 'getDeal');  //11
 $app->post('/postlogs', 'postLogs');  //12
-$app->get('/dues/:dealid/:foreclosure', 'getDues');  //13
+$app->get('/dues/:dealid/:foreclosure', 'getDues');  //13 (Pending)
 $app->post('/postdues', 'postDues');  //14 (Pending)
 $app->get('/deallogs/:dealid', 'getDealLogs');  //15
 $app->get('/dealledgers/:dealid', 'getDealLedger');  //16
@@ -132,20 +132,16 @@ function registerGcm($imei,$gcmid){
 //03
 function getStaticData(){
 	$dbPrefix = $_SESSION['DB_PREFIX'];
-    $dbPrefix_curr = $_SESSION['DB_PREFIX_CURR'];
-    $dbPrefix_last = $_SESSION['DB_PREFIX_LAST'];
+	check_session();
+	$empid = $_SESSION['userid'];
 
- 	//TO-DO: Take sraid frmo session
-	//TO-DO: Bank Branches are not same for each SRA. Return the branches applicable only to logged in SRA. Also Change the query to have a join rather than looping.
-    $sql = "select sql_calc_found_rows bankid,banknm from ".$dbPrefix.".tbmsourcebank";
+    $sql = "select sql_calc_found_rows distinct(sb.bankid),sb.banknm from ".$dbPrefix.".tbmsourcebank sb join ".$dbPrefix.".tbaposbankbranch pb on sb.bankid = pb.bankid where pb.empid = $empid";
 	$bank = executeSelect($sql);
 
 	foreach($bank['result'] as $i=> $static){
 		$bankid = $static['bankid'];
-
-		$sql_branchnm = "select sql_calc_found_rows BankBrnchId as branchid,BankBrnchNm as branch,city from ".$dbPrefix.".tbmsourcebankbrnch where bankid=$bankid";
+		$sql_branchnm = "select sql_calc_found_rows bb.BankBrnchId as branchid,bb.BankBrnchNm as branch,bb.city from ".$dbPrefix.".tbmsourcebankbrnch bb join ".$dbPrefix.".tbaposbankbranch pb on bb.BankBrnchId = pb.branchid where bb.bankid=$bankid and pb.empid = $empid";
 		$branchnm = executeSelect($sql_branchnm);
-
 		$bank['result'][$i]['branchname'] = $branchnm;
  	}
     $staticdata['bank']=$bank;
@@ -193,7 +189,9 @@ function getStaticData(){
 	$dc['result']=$dctype;
 	$staticdata['dctype']=$dc;
 
- 	echo '{"staticdata": ' . json_encode($staticdata) . '}';
+ 	  $response["staticdata"] = $staticdata;
+ 	  json_encode($response);
+ 	//echo '{"staticdata": ' . json_encode($staticdata) . '}';
 }
 
 
@@ -202,6 +200,7 @@ function getContacts($lastid){
 	$dbPrefix = $_SESSION['DB_PREFIX'];
 
 	$sql = "select id,tcase(name) as name,mobile,designation,tcase(centre) as centre, null as photo_url from ".$dbPrefix.".tbmemployee where active=1 and id > '$lastid' ORDER BY id ASC";
+
 	$contacts = executeSelect($sql);
 
 	$response = array();
@@ -272,7 +271,19 @@ function getDashboards(){
 	)t1 ORDER BY yy DESC, mm DESC LIMIT 0, 5";
 
 	$dashboard = executeSelect($sql);
-	echo '{"dashboards": ' . json_encode($dashboard) . '}';
+
+	$response = array();
+		if($dashboard['row_count']>0){
+			$response["success"] = 1;
+		}
+		else{
+			$response = error_code(1029);
+			echo json_encode($response);
+			return;
+		}
+		$response["dashboard"] = $dashboard;
+		echo json_encode($response);
+		//echo '{"dashboards": ' . json_encode($dashboard) . '}';
 }
 
 
@@ -299,12 +310,18 @@ function getDepositHistory($page){
 //09
 function getDaywiseCollection(){
     $dbPrefix_curr = $_SESSION['DB_PREFIX_CURR'];
+    $dbPrefix_last = $_SESSION['DB_PREFIX_LAST'];
 
 	check_session();
 	$sraid = $_SESSION['userid'];
 
 	//TO-DO: What happens on April 10th. Will this query return you 31 rows?
-    $sql = "select count(distinct dealid) as recovered_cases,round(sum(TotRcptAmt)) as amount,date_format(rcptdt,'%d-%b') as dt from ".$dbPrefix_curr.".tbxdealrcpt where RcptPayMode=1 and CclFlg = 0 and sraid = $sraid group by rcptdt order by rcptdt desc limit 31";
+	//$sql = "select count(distinct dealid) as recovered_cases,round(sum(TotRcptAmt)) as amount,date_format(rcptdt,'%d-%b') as dt from //".$dbPrefix_curr.".tbxdealrcpt where RcptPayMode=1 and CclFlg = 0 and sraid = $sraid group by rcptdt order by rcptdt desc limit 31";
+
+	$sql = "SELECT * FROM (
+	SELECT count(distinct dealid) as recovered_cases,round(sum(TotRcptAmt)) as amount,rcptdt from ".$dbPrefix_curr.".tbxdealrcpt where RcptPayMode=1 and CclFlg = 0 and sraid = $sraid group by rcptdt
+	UNION
+	SELECT count(distinct dealid) as recovered_cases,round(sum(TotRcptAmt)) as amount,rcptdt from ".$dbPrefix_last.".tbxdealrcpt where RcptPayMode=1 and CclFlg = 0 and sraid = $sraid group by rcptdt)t1 ORDER BY rcptdt DESC LIMIT 31";
 
     $collection = executeSelect($sql);
 
@@ -414,7 +431,7 @@ function postLogs(){
 	else if (!preg_match("/^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[1-2][0-9]|3[0-1])$/",$nextfollowup_dt)){
 		$response = error_code(1013);
 	}
-	else if (!ctype_digit($logtype) && ($logtype ==1 or $logtype == 2)){
+	else if ((!ctype_digit($logtype)) && (!($logtype == 1 || $logtype == 2))){
 		$response = error_code(1014);
 	}
 	else if (!ctype_digit($tagid)){
@@ -469,8 +486,7 @@ function getDues($dealid, $foreclosure){
 		$response["success"] = 1;
 	}
 	else{
-		$response["success"] = 0;
-		$response["message"] = 'Dues does not exist';
+		$response = error_code(1018);
 		echo json_encode($response);
 		return;
 	}
@@ -493,8 +509,7 @@ function getDealLogs($dealid) {
 	    $response["success"] = 1;
 	}
 	else{
-		$response["success"] = 0;
-		$response["message"] = 'Logs does not exist';
+		$response = error_code(1019);
 		echo json_encode($response);
 		return;
 	}
@@ -524,8 +539,7 @@ function getDealLedger($dealid) {
 	    $response["success"] = 1;
 	}
 	else{
-		$response["success"] = 0;
-		$response["message"] = 'Ledgers does not exist';
+		$response = error_code(1020);
 		echo json_encode($response);
 		return;
 	}
@@ -545,7 +559,7 @@ function postAddress(){
 
 }
 
-//To Do : Validate Noc flag.
+
 //19
 function postRTORegNo($dealid,$regno,$nocflag) {
     $dbPrefix = $_SESSION['DB_PREFIX'];
@@ -554,13 +568,16 @@ function postRTORegNo($dealid,$regno,$nocflag) {
     // NOC Flag - 1 = requiest for NOC & update Rto Reg No,
     //            0 = Only update Rto Reg No.
 
-    if (!ctype_alnum($regno)){
-	    	$response["success"] = 0;
-			$response["message"] = 'RTO Reg. No is not valid';
-			echo json_encode($response);
-			return;
+    if(!ctype_alnum($regno)){
+    	$response = error_code(1021);
+	    echo json_encode($response);
+		return;
 	}
-
+	if(!($nocflag == 0 || $nocflag == 1)){
+		$response = error_code(1028);
+	 	echo json_encode($response);
+		return;
+	}
 	$sql_update = "update ".$dbPrefix.".tbmdealvehicle set RTORegNo = '$regno' where dealid=$dealid";
 	$affectedrows = executeUpdate($sql_update);
 
@@ -572,11 +589,10 @@ function postRTORegNo($dealid,$regno,$nocflag) {
 			$response["message"] = 'RTO Reg. no. updated Successfully';
 		}
 		else{
-			$response["success"] = 0;
-			$response["message"] = 'Failed to update RTO Reg.no. Or already updated';
+			$response = error_code(1022);
 		}
 	}
-	else if($nocflag == 1){
+	if($nocflag == 1){
 		$sql_select = "select dealno,dealnm from ".$dbPrefix.".tbmdeal where dealid = $dealid";
 		$res = executeSelect($sql_select);
 		$dealno =  $res['result'][0]['dealno'];
@@ -590,17 +606,10 @@ function postRTORegNo($dealid,$regno,$nocflag) {
 			$response["message"] = 'NOC request has been successfully sent';
 		}
 		else{
-			$response["success"] = 0;
-			$response["message"] = 'Failed to send NOC request';
+			$response = error_code(1023);
 		}
-
-	}
-	else{
-		$response["success"] = 0;
-		$response["message"] = 'Operation Failed';
 	}
 	echo json_encode($response);
-
 }
 
 
@@ -641,8 +650,7 @@ function updateAppInfo(){
 			$response["message"] = 'Successfully Updated';
 		}
 		else{
-			$response["success"] = 0;
-			$response["message"] = 'Failed to update Or already updated';
+			$response = error_code(1024);
 		}
 	}
 	echo json_encode($response);
@@ -676,8 +684,7 @@ function updateLastLogin(){
 			$response["message"] = 'Successfully Updated';
 		}
 		else{
-			$response["success"] = 0;
-			$response["message"] = 'Failed to update Or already updated';
+			$response = error_code(1025);
 		}
 	}
 	echo json_encode($response);
@@ -699,8 +706,7 @@ function getNotifications($lastid){
 		    $response["success"] = 1;
 		}
 		else{
-			$response["success"] = 0;
-			$response["message"] = 'notifications does not exist';
+			$response = error_code(1026);
 			echo json_encode($response);
 			return;
 		}
@@ -733,8 +739,7 @@ function getUpdatedDeals($lasttimestamp){
 			$response["updateddeals"] = $updateddeals;
 		}
 		else{
-			$response["success"] = 0;
-			$response["message"] = 'Updated deals not found';
+			$response = error_code(1027);
 			echo json_encode($response);
 			return;
 		}
