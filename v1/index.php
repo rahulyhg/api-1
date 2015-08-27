@@ -45,14 +45,14 @@ function login(){
 	$imei = $request->params('imei');
 
 	if (!ctype_digit($pin)){
-			$response = error_code(1002);
-			echo json_encode($response);
-			return;
+		$response = error_code(1002);
+		echo json_encode($response);
+		return;
 	}
 	if (!ctype_digit($imei)){
-			$response = error_code(1003);
-			echo json_encode($response);
-			return;
+		$response = error_code(1003);
+		echo json_encode($response);
+		return;
 	}
 	$sql = "select empid from ".$dbPrefix.".tbmdevices where apppin = '$pin' and imei = '$imei'";
 	$empid = executeSingleSelect($sql);
@@ -66,7 +66,7 @@ function login(){
 		else{
 			$response = error_code(1000);
 		}
-		echo json_encode($response);
+	echo json_encode($response);
 }
 
 
@@ -100,7 +100,6 @@ function register($imei){
 //02
 function registerGcm($imei,$gcmid){
 	$dbPrefix = $_SESSION['DB_PREFIX'];
-
 	check_session();
 	$empid = $_SESSION['userid'];
 
@@ -189,9 +188,8 @@ function getStaticData(){
 	$dc['result']=$dctype;
 	$staticdata['dctype']=$dc;
 
- 	  $response["staticdata"] = $staticdata;
- 	  json_encode($response);
- 	//echo '{"staticdata": ' . json_encode($staticdata) . '}';
+ 	$response["staticdata"] = $staticdata;
+ 	echo json_encode($response);
 }
 
 
@@ -224,7 +222,6 @@ function getDeals($page) {
     $dbPrefix_last = $_SESSION['DB_PREFIX_LAST'];
 	$limit = $_SESSION['API_ROW_LIMIT'];
 	$start = ($page-1) * $limit;
-
 	check_session();
 	$sraid = $_SESSION['userid'];
 
@@ -237,11 +234,10 @@ function getDeals($page) {
 	ORDER BY fr.dd desc limit $start, $limit";
 
 	$deals = executeSelect($sql);
-
-    $deals = deal_details($deals);
+	$deals1 = deal_details($deals);
 
 	$response = array();
-		if($deals['row_count']>0){
+		if($deals1['row_count']>0){
 			$response["success"] = 1;
 		}
 		else{
@@ -249,7 +245,7 @@ function getDeals($page) {
 			echo json_encode($response);
 			return;
 		}
-	$response["deals"] = $deals;
+	$response["deals"] = $deals1;
 	echo json_encode($response);
 }
 
@@ -259,7 +255,6 @@ function getDashboards(){
     $dbPrefix = $_SESSION['DB_PREFIX'];
     $dbPrefix_curr = $_SESSION['DB_PREFIX_CURR'];
     $dbPrefix_last = $_SESSION['DB_PREFIX_LAST'];
-
 	check_session();
 	$sraid = $_SESSION['userid'];
 
@@ -281,9 +276,9 @@ function getDashboards(){
 			echo json_encode($response);
 			return;
 		}
-		$response["dashboard"] = $dashboard;
-		echo json_encode($response);
-		//echo '{"dashboards": ' . json_encode($dashboard) . '}';
+	$response["dashboard"] = $dashboard;
+	echo json_encode($response);
+	//echo '{"dashboards": ' . json_encode($dashboard) . '}';
 }
 
 
@@ -311,12 +306,8 @@ function getDepositHistory($page){
 function getDaywiseCollection(){
     $dbPrefix_curr = $_SESSION['DB_PREFIX_CURR'];
     $dbPrefix_last = $_SESSION['DB_PREFIX_LAST'];
-
 	check_session();
 	$sraid = $_SESSION['userid'];
-
-	//TO-DO: What happens on April 10th. Will this query return you 31 rows?
-	//$sql = "select count(distinct dealid) as recovered_cases,round(sum(TotRcptAmt)) as amount,date_format(rcptdt,'%d-%b') as dt from //".$dbPrefix_curr.".tbxdealrcpt where RcptPayMode=1 and CclFlg = 0 and sraid = $sraid group by rcptdt order by rcptdt desc limit 31";
 
 	$sql = "SELECT * FROM (
 	SELECT count(distinct dealid) as recovered_cases,round(sum(TotRcptAmt)) as amount,rcptdt from ".$dbPrefix_curr.".tbxdealrcpt where RcptPayMode=1 and CclFlg = 0 and sraid = $sraid group by rcptdt
@@ -343,10 +334,8 @@ function getDaywiseCollection(){
 function searchDeals($query,$page){
 	$dbPrefix = $_SESSION['DB_PREFIX'];
 	$dbPrefix_curr = $_SESSION['DB_PREFIX_CURR'];
-
 	$limit = $_SESSION['API_ROW_LIMIT'];
 	$start = ($page-1) * $limit;
-
 	check_session();
 	$sraid = $_SESSION['userid'];
 
@@ -396,10 +385,10 @@ function getDeal($dealid) {
 	left join ".$dbPrefix_curr.".tbxfieldrcvry fr on fr.dealid = d.dealid and fr.mm = ".date('n');
 
 	$deal = executeSelect($sql);
-	$deal = deal_details($deal);
+	$deal1 = deal_details($deal);
 
 	$response = array();
-	if($deal['row_count']>0){
+	if($deal1['row_count']>0){
 		$response["success"] = 1;
 	}
 	else{
@@ -407,7 +396,7 @@ function getDeal($dealid) {
 		echo json_encode($response);
 		return;
 	}
-	$response["deal"] = $deal;
+	$response["deal"] = $deal1;
 	echo json_encode($response);
 }
 
@@ -431,7 +420,7 @@ function postLogs(){
 	else if (!preg_match("/^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[1-2][0-9]|3[0-1])$/",$nextfollowup_dt)){
 		$response = error_code(1013);
 	}
-	else if ((!ctype_digit($logtype)) && (!($logtype == 1 || $logtype == 2))){
+	else if (!($logtype == 1 || $logtype == 2)){
 		$response = error_code(1014);
 	}
 	else if (!ctype_digit($tagid)){
@@ -501,8 +490,7 @@ function postDues(){
 
 //15
 function getDealLogs($dealid) {
-
-   	$logs = deal_logs($dealid);
+	$logs = deal_logs($dealid);
 
 	$response = array();
 	if($logs['row_count']>0){
@@ -528,12 +516,10 @@ function getDealLedger($dealid) {
 
  	$response = array();
 	if (isset($hpdt)) {
-
-        $ledger = deal_ledger($dealid,$hpdt);
-
+		$ledger = deal_ledger($dealid,$hpdt);
 		$ledger1 = format_ledger($ledger);
-		$ledgers["row_count"]=$ledger['row_count'];
-	    $ledgers["found_rows"]=$ledger['found_rows'];
+		$ledgers["row_count"]=count($ledger1);
+	    $ledgers["found_rows"]=count($ledger1);
 		$ledgers['result']=$ledger1;
 
 	    $response["success"] = 1;
@@ -623,7 +609,6 @@ function postBankDeposit(){
 function updateAppInfo(){
 	$dbPrefix = $_SESSION['DB_PREFIX'];
 	$request = Slim::getInstance()->request();
-
 	check_session();
 	$sraid = $_SESSION['userid'];
 
@@ -659,10 +644,8 @@ function updateAppInfo(){
 
 //22
 function updateLastLogin(){
-
 	$dbPrefix = $_SESSION['DB_PREFIX'];
 	$request = Slim::getInstance()->request();
-
 	check_session();
 	$sraid = $_SESSION['userid'];
 
@@ -694,7 +677,6 @@ function updateLastLogin(){
 //23
 function getNotifications($lastid){
 	$dbPrefix = $_SESSION['DB_PREFIX'];
-
 	check_session();
 	$sraid = $_SESSION['userid'];
 
@@ -720,7 +702,6 @@ function getUpdatedDeals($lasttimestamp){
 	$dbPrefix = $_SESSION['DB_PREFIX'];
 	$dbPrefix_curr = $_SESSION['DB_PREFIX_CURR'];
 	$dbPrefix_last = $_SESSION['DB_PREFIX_LAST'];
-
 	check_session();
 	$sraid = $_SESSION['userid'];
 
@@ -743,9 +724,8 @@ function getUpdatedDeals($lasttimestamp){
 			echo json_encode($response);
 			return;
 		}
-
 	}
-		echo json_encode($response);
+	echo json_encode($response);
 }
 
 
@@ -888,9 +868,8 @@ function deal_ledger($dealid,$hpdt){
 	return $ledger;
 }
 
-//TO-DO: Pass on deal results from calling function.
-function deal_details($deals){
 
+function deal_details($deals){
     $dbPrefix = $_SESSION['DB_PREFIX'];
     $dbPrefix_curr = $_SESSION['DB_PREFIX_CURR'];
     $dbPrefix_last = $_SESSION['DB_PREFIX_LAST'];
@@ -931,11 +910,10 @@ function deal_details($deals){
 		$phones["found_rows"]=$rows;
 		$phones['result']=$ph;
 
-		//TO-DO: Formatted ledger might have diffrent rows than normal ledger. Check the code and correct it.
 		$ledger = deal_ledger($dealid,$deal['hpdt']);
 		$ledger1 = format_ledger($ledger);
-		$ledgers["row_count"]=$ledger['row_count'];
-		$ledgers["found_rows"]=$ledger['found_rows'];
+		$ledgers["row_count"]=count($ledger1);
+		$ledgers["found_rows"]=count($ledger1);
 		$ledgers['result']=$ledger1;
 
 		$logs = deal_logs($dealid);
@@ -965,7 +943,6 @@ function deal_details($deals){
 
 function foreclosure($dealid){
 	$dbPrefix = $_SESSION['DB_PREFIX'];
-
 	$current_date = date('Y-m-d');
 
 	$q = "select sum(dueamt+collectionchrgs) as outstanding_amt,sum(collectionchrgs) as cc,sum(finchrg) as remaining_interest from ".$dbPrefix.".tbmduelist where duedt > '$current_date' and dealid = $dealid group by dealid";
