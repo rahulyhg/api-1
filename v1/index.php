@@ -36,6 +36,7 @@ $app->get('/sendsms', 'sendsms');
 
 $app->run();
 
+//TO-DO : Replace e.oldid with empid.
 //00
 function login(){
 	$dbPrefix = $_SESSION['DB_PREFIX'];
@@ -54,7 +55,9 @@ function login(){
 		echo json_encode($response);
 		return;
 	}
-	$sql = "select empid from ".$dbPrefix.".tbmdevices where apppin = '$pin' and imei = '$imei'";
+	//$sql = "select empid from ".$dbPrefix.".tbmdevices where apppin = '$pin' and imei = '$imei'";
+
+	$sql = "select e.oldid as empid from ".$dbPrefix.".tbmdevices d join ".$dbPrefix.".tbmemployee e on e.id = d.empid where d.apppin = '$pin' and d.imei = '$imei'";
 	$empid = executeSingleSelect($sql);
 
 	$response = array();
@@ -69,7 +72,7 @@ function login(){
 	echo json_encode($response);
 }
 
-
+//TO-DO : Replace e.oldid with e.id.
 //01
 function register($imei){
 	$dbPrefix = $_SESSION['DB_PREFIX'];
@@ -78,7 +81,7 @@ function register($imei){
 		echo json_encode($response);
 		return;
 	}
-	$sql = "select e.id,tcase(e.name) as name,null as pin,e.mobile,null as email,null as photo_url,e.department,e.designation,e.role,tcase(e.centre) as centre,null as wallet_limit,null as printer_id,null as app_version,null as admin_dsn,null as service_url from ".$dbPrefix.".tbmemployee e join ".$dbPrefix.".tbmdevices d on e.id = d.empid where d.imei = '$imei' and e.active=1";
+	$sql = "select e.oldid as id,tcase(e.name) as name,d.apppin as pin,e.mobile,e.email,e.photourl as photo_url,e.department,e.designation,e.role,tcase(e.centre) as centre,e.walletlimit as wallet_limit,d.printerid as printer_id,d.appversion as app_version,d.admindsn as admin_dsn,d.serviceurl as service_url from ".$dbPrefix.".tbmemployee e join ".$dbPrefix.".tbmdevices d on e.id = d.empid and d.active=1 where d.imei = '$imei' and e.active=1";
 
 	$emp = executeSelect($sql);
 
@@ -96,7 +99,7 @@ function register($imei){
 	echo json_encode($response);
 }
 
-
+//TO-Do : Replace $empid1 with $empid.
 //02
 function registerGcm($imei,$gcmid){
 	$dbPrefix = $_SESSION['DB_PREFIX'];
@@ -113,7 +116,12 @@ function registerGcm($imei,$gcmid){
 		echo json_encode($response);
 		return;
 	}
-	$sql_update = "update ".$dbPrefix.".tbmdevices set gcmid = '$gcmid' where empid=$empid and imei = '$imei'";
+
+    //To-Do : Remove this query & Replace $empid1 with $empid.
+	$sql_empid = "select id from ".$dbPrefix.".tbmemployee where oldid=$empid and active=1";
+	$empid1 = executeSingleSelect($sql_empid);
+
+	$sql_update = "update ".$dbPrefix.".tbmdevices set gcmid = '$gcmid' where empid=$empid1 and imei = '$imei'";
 	$affectedrows = executeUpdate($sql_update);
 
 	$response = array();
@@ -378,10 +386,11 @@ function getDeal($dealid) {
     $dbPrefix_curr = $_SESSION['DB_PREFIX_CURR'];
     $dbPrefix_last = $_SESSION['DB_PREFIX_LAST'];
 
-	$sql = "select fr.dealid, fr.dealid, fr.dealno, tcase(fr.dealnm) as name,tcase(d.centre) as centre, tcase(fr.area) as area, tcase(fr.city) as city, tcase(fr.address) as address, fr.mobile, DATE_FORMAT(fr.hpdt, '%d-%m-%Y') as hpdt, round(fr.dueamt) as total_due,round(fr.OdDueAmt) as overdue, fr.dd as assigned_on, DATE_FORMAT(fr.CallerFollowupDt,'%d-%m-%Y') as caller_followup_dt,DATE_FORMAT(fr.SRAFollowupDt,'%d-%m-%Y') as sra_followup_dt, fr.rgid as bucket,round(d.financeamt) as finance_amt,round(fr.emi) as emi,d.period as tenure,DATE_FORMAT(d.hpexpdt, '%d-%m-%Y') as expiry_dt, DATE_FORMAT(d.startduedt, '%d') as emi_day, (case when d.paytype=1 then 'PDC' when d.paytype=2 then 'ECS' when d.paytype=3 then 'Direct Debit' end) as type, tcase(concat(dv.make, ' ', dv.model)) as vehicle_model, dv.VhclColour as vehicle_color, dv.Chasis as vehicle_chasis_no, dv.EngineNo as vehicle_engine_no, dv.RTORegNo as vehicle_rto_reg_no, tcase(b.BrkrNm) as dealer, tcase(trim(concat(ifnull(b.city,''), ' ', case when b.centre != b.city then b.centre else '' end))) as dealer_loc, fr.SalesmanId as salesman_id
+	$sql = "select d.dealid, d.dealno, tcase(d.dealnm) as name,tcase(d.centre) as centre, tcase(d.area) as area, tcase(d.city) as city, concat(tcase(d.add1),' ',tcase(d.add2)) as address, d.mobile, DATE_FORMAT(d.hpdt, '%d-%m-%Y') as hpdt, round(fr.dueamt) as total_due,round(fr.OdDueAmt) as overdue, fr.dd as assigned_on, DATE_FORMAT(fr.CallerFollowupDt,'%d-%m-%Y') as caller_followup_dt,DATE_FORMAT(fr.SRAFollowupDt,'%d-%m-%Y') as sra_followup_dt, fr.rgid as bucket,round(d.financeamt) as finance_amt,round(ps.MthlyAmt+ps.CollectionChrgs) as emi,d.period as tenure,DATE_FORMAT(d.hpexpdt, '%d-%m-%Y') as expiry_dt, DATE_FORMAT(d.startduedt, '%d') as emi_day, (case when d.paytype=1 then 'PDC' when d.paytype=2 then 'ECS' when d.paytype=3 then 'Direct Debit' end) as type, tcase(concat(dv.make, ' ', dv.model)) as vehicle_model, dv.VhclColour as vehicle_color, dv.Chasis as vehicle_chasis_no, dv.EngineNo as vehicle_engine_no, dv.RTORegNo as vehicle_rto_reg_no, tcase(b.BrkrNm) as dealer, tcase(trim(concat(ifnull(b.city,''), ' ', case when b.centre != b.city then b.centre else '' end))) as dealer_loc, fr.SalesmanId as salesman_id
 	FROM ".$dbPrefix.".tbmdeal d
 	join ".$dbPrefix.".tbmdealvehicle dv on d.dealid=dv.dealid and d.dealid = $dealid
 	join ".$dbPrefix.".tbmbroker b on d.brkrid = b.brkrid
+	join lksa.tbmpmntschd ps on d.dealid = ps.dealid
 	left join ".$dbPrefix_curr.".tbxfieldrcvry fr on fr.dealid = d.dealid and fr.mm = ".date('n');
 
 	$deal = executeSelect($sql);
@@ -604,13 +613,13 @@ function postBankDeposit(){
 
 }
 
-
+//To-Do : Replace $empid1 with $empid.
 //21
 function updateAppInfo(){
 	$dbPrefix = $_SESSION['DB_PREFIX'];
 	$request = Slim::getInstance()->request();
 	check_session();
-	$sraid = $_SESSION['userid'];
+	$empid = $_SESSION['userid'];
 
 	$imei = $request->params('imei');
 	$appversion = $request->params('appversion');
@@ -626,7 +635,13 @@ function updateAppInfo(){
 			$response["message"] = 'App last update date is not correct';
 	}
 	else{
-		$sql_update = "update ".$dbPrefix.".tbmdevices set appversion = '$appversion',appinstalldt = '$appinstalldt',applastupdatedt = '$applastupdatedt' where empid=$sraid and imei=$imei";
+
+		 //To-Do : Remove this query & Replace $empid1 with $empid.
+		$sql_empid = "select id from ".$dbPrefix.".tbmemployee where oldid=$empid and active=1";
+		$empid1 = executeSingleSelect($sql_empid);
+
+
+		$sql_update = "update ".$dbPrefix.".tbmdevices set appversion = '$appversion',appinstalldt = '$appinstalldt',applastupdatedt = '$applastupdatedt' where empid=$empid1 and imei=$imei";
 		$affectedrows = executeUpdate($sql_update);
 
 		$response = array();
@@ -641,13 +656,13 @@ function updateAppInfo(){
 	echo json_encode($response);
 }
 
-
+//To-Do : Replace $empid1 with $empid.
 //22
 function updateLastLogin(){
 	$dbPrefix = $_SESSION['DB_PREFIX'];
 	$request = Slim::getInstance()->request();
 	check_session();
-	$sraid = $_SESSION['userid'];
+	$empid = $_SESSION['userid'];
 
 	$imei = $request->params('imei');
 	$lastlogindt = $request->params('lastlogindt');
@@ -658,7 +673,12 @@ function updateLastLogin(){
 		$response["message"] = 'Last login date is not correct';
 	}
 	else{
-		$sql_update = "update ".$dbPrefix.".tbmdevices set lastlogindt = '$lastlogindt',usagetime = '$usagetime' where EmpId=$sraid and imei = $imei";
+
+		//To-Do : Remove this query & Replace $empid1 with $empid.
+		$sql_empid = "select id from ".$dbPrefix.".tbmemployee where oldid=$empid and active=1";
+		$empid1 = executeSingleSelect($sql_empid);
+
+		$sql_update = "update ".$dbPrefix.".tbmdevices set lastlogindt = '$lastlogindt',usagetime = '$usagetime' where EmpId=$empid1 and imei = $imei";
 		$affectedrows = executeUpdate($sql_update);
 
 		$response = array();
