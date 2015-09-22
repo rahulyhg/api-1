@@ -83,7 +83,7 @@ function register($imei){
 		return;
 	}
 	//Replace e.oldid with e.id in following query.
-	$sql = "select e.oldid as empid,tcase(e.name) as name,d.apppin as pin,e.mobile,e.email,e.photourl as photo_url,e.department,e.designation,e.role,tcase(e.centre) as centre,e.walletlimit as wallet_limit,d.printerid as printer_id,d.appversion as app_version,d.admindsn as admin_dsn,d.serviceurl as service_url from ".$dbPrefix.".tbmemployee e join ".$dbPrefix.".tbmdevices d on e.id = d.empid and d.active=1 where d.imei = '$imei' and e.active=1";
+	$sql = "select e.oldid as empid,tcase(e.name) as name,d.apppin as pin,e.mobile,e.email,e.photourl as photo_url,e.department,e.designation,e.role,tcase(e.centre) as centre,e.walletlimit as wallet_limit,d.printerid as printer_id,d.appversion as app_version,d.admindsn as admin_dsn,d.serviceurl as service_url from ".$dbPrefix.".tbmemployee e join ".$dbPrefix.".tbmdevices d on e.id = d.empid and d.active=2 where d.imei = '$imei' and e.active=2";
 
 	$emp = executeSelect($sql);
 
@@ -120,7 +120,7 @@ function registerGcm($empid,$imei,$gcmid){
 	}
 
     //To-Do : Remove following query(sql_empid) & Replace $empid1 with $empid in sql_update query.
-	$sql_empid = "select id from ".$dbPrefix.".tbmemployee where oldid=$empid and active=1";
+	$sql_empid = "select id from ".$dbPrefix.".tbmemployee where oldid=$empid and active=2";
 	$empid1 = executeSingleSelect($sql_empid);
 
 	$sql_update = "update ".$dbPrefix.".tbmdevices set gcmid = '$gcmid' where empid=$empid1 and imei = '$imei'";
@@ -207,7 +207,7 @@ function getStaticData($empid){
 function getContacts($lastid){
 	$dbPrefix = $_SESSION['DB_PREFIX'];
 
-	$sql = "select id,tcase(name) as name,mobile,designation,tcase(centre) as centre, null as photo_url from ".$dbPrefix.".tbmemployee where active=1 and id > '$lastid' ORDER BY id ASC";
+	$sql = "select id,tcase(name) as name,mobile,designation,tcase(centre) as centre, null as photo_url from ".$dbPrefix.".tbmemployee where active=2 and id > '$lastid' ORDER BY id ASC";
 
 	$contacts = executeSelect($sql);
 
@@ -665,7 +665,7 @@ function updateAppInfo(){
 	else{
 
 		 //To-Do : Remove following query(sql_empid) & Replace $empid1 with $empid in sql_update query.
-		$sql_empid = "select id from ".$dbPrefix.".tbmemployee where oldid=$empid and active=1";
+		$sql_empid = "select id from ".$dbPrefix.".tbmemployee where oldid=$empid and active=2";
 		$empid1 = executeSingleSelect($sql_empid);
 
 
@@ -704,7 +704,7 @@ function updateLastLogin(){
 	else{
 
 		//To-Do : Remove following query(sql_empid) & Replace $empid1 with $empid in sql_update query.
-		$sql_empid = "select id from ".$dbPrefix.".tbmemployee where oldid=$empid and active=1";
+		$sql_empid = "select id from ".$dbPrefix.".tbmemployee where oldid=$empid and active=2";
 		$empid1 = executeSingleSelect($sql_empid);
 
 		$sql_update = "update ".$dbPrefix.".tbmdevices set lastlogindt = '$lastlogindt',usagetime = '$usagetime' where EmpId=$empid1 and imei = $imei";
