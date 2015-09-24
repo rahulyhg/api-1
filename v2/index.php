@@ -114,7 +114,7 @@ function registerGcm($empid,$imei,$gcmid){
 		return;
 	}
     if(!ctype_alnum($gcmid)){
-    	$response = error_code(1005);
+    	$response = error_code(1004);
 		echo json_encode($response);
 		return;
 	}
@@ -132,7 +132,7 @@ function registerGcm($empid,$imei,$gcmid){
 		$response["message"] = 'GCM Id Successfully Registered';
 	}
 	else{
-		$response = error_code(1005);
+		$response = error_code(1006);
 	}
 	echo json_encode($response);
 }
