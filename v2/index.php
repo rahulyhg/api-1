@@ -55,9 +55,9 @@ function login(){
 		echo json_encode($response);
 		return;
 	}
-	//$sql = "select empid from ".$dbPrefix.".tbmdevices where apppin = '$pin' and imei = '$imei'";
+	//$sql = "select empid from ".$dbPrefix.".tbmdevices where apppin = '$pin' and imei = '$imei' and active=2";
 	//Remove following query & uncomment above query.
-	$sql = "select e.oldid as empid from ".$dbPrefix.".tbmdevices d join ".$dbPrefix.".tbmemployee e on e.id = d.empid where d.apppin = '$pin' and d.imei = '$imei'";
+	$sql = "select e.oldid as empid from ".$dbPrefix.".tbmdevices d join ".$dbPrefix.".tbmemployee e on e.id = d.empid where d.apppin = '$pin' and d.imei = '$imei' and d.active=2";
 	$empid = executeSingleSelect($sql);
 
 	$response = array();
