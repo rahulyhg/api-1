@@ -271,12 +271,24 @@ function getDashboards($empid){
 	//$sraid = $_SESSION['userid'];
 	$sraid = $empid;
 
-	//TO-DO: Optimize for 6 months in case of current financial year has already crossed 6 months.
-	$sql = "SELECT * FROM (
-	SELECT yy, mm, sraid as empid, sranm as empname, collection, od, penalty, bouncing, others, assigned_fd, recovered_fd, assigned_dm, recovered_dm, assigned, recovered, assigned_b1, recovered_b1, assigned_b2, recovered_b2, assigned_b3, recovered_b3, assigned_b4, recovered_b4, assigned_b5, recovered_b5, assigned_b6, recovered_b6, target_fd FROM ".$dbPrefix_curr.".tbxdashboard WHERE sraid = $sraid
-	UNION
-	SELECT yy, mm, sraid as empid, sranm as empname, collection, od, penalty, bouncing, others, assigned_fd, recovered_fd, assigned_dm, recovered_dm, assigned, recovered, assigned_b1, recovered_b1, assigned_b2, recovered_b2, assigned_b3, recovered_b3, assigned_b4, recovered_b4, assigned_b5, recovered_b5, assigned_b6, recovered_b6, target_fd FROM ".$dbPrefix_last.".tbxdashboard WHERE sraid = $sraid
-	)t1 ORDER BY yy DESC, mm DESC LIMIT 0, 5";
+	$sql = "SELECT f.yy, f.mm, f.sraid AS empid, NULL AS empname, SUM(d.total) AS collection, SUM(d.OD) AS od, SUM(d.Penalty) AS penalty, SUM(d.CB) AS bouncing, SUM(d.Other) AS others,
+	SUM(CASE WHEN f.dd = 1 THEN 1 ELSE 0 END) AS assigned_fd, SUM(CASE WHEN f.dd = 1 AND d.dealid IS NOT NULL THEN 1 ELSE 0 END) AS recovered_fd,
+	SUM(CASE WHEN f.dd != 1 THEN 1 ELSE 0 END) AS assigned_dm, SUM(CASE WHEN f.dd != 1 AND d.dealid IS NOT NULL THEN 1 ELSE 0 END) AS recovered_dm, COUNT(f.dealid) AS assinged, COUNT(d.dealid) AS recovered,
+	SUM(CASE WHEN f.rgid = 1 THEN 1 ELSE 0 END) AS assigned_b1, SUM(CASE WHEN f.rgid =1 AND d.dealid IS NOT NULL THEN 1 ELSE 0 END) AS recovered_b1,
+	SUM(CASE WHEN f.rgid = 2 THEN 1 ELSE 0 END) AS assigned_b2, SUM(CASE WHEN f.rgid =2 AND d.dealid IS NOT NULL THEN 1 ELSE 0 END) AS recovered_b2,
+	SUM(CASE WHEN f.rgid = 3 THEN 1 ELSE 0 END) AS assigned_b3, SUM(CASE WHEN f.rgid =3 AND d.dealid IS NOT NULL THEN 1 ELSE 0 END) AS recovered_b3,
+	SUM(CASE WHEN f.rgid = 4 THEN 1 ELSE 0 END) AS assigned_b4, SUM(CASE WHEN f.rgid =4 AND d.dealid IS NOT NULL THEN 1 ELSE 0 END) AS recovered_b4,
+	SUM(CASE WHEN f.rgid = 5 THEN 1 ELSE 0 END) AS assigned_b5, SUM(CASE WHEN f.rgid =5 AND d.dealid IS NOT NULL THEN 1 ELSE 0 END) AS recovered_b5,
+	SUM(CASE WHEN f.rgid > 5 THEN 1 ELSE 0 END) AS assigned_b6, SUM(CASE WHEN f.rgid >5 AND d.dealid IS NOT NULL THEN 1 ELSE 0 END) AS recovered_b6, 0 AS target_fd
+	FROM ".$dbPrefix_curr.".tbxfieldrcvry f LEFT JOIN
+	(SELECT MONTH(rcptdt) AS mm, r.dealid, SUM(rd.rcptamt) AS total,
+	SUM(CASE WHEN rd.dctyp IN (101,102,111) THEN rd.rcptamt ELSE 0 END) AS OD,
+	SUM(CASE WHEN rd.dctyp = 103 THEN rd.rcptamt ELSE 0 END) AS CB,
+	SUM(CASE WHEN rd.dctyp = 104 THEN rd.rcptamt ELSE 0 END) AS Penalty,
+	SUM(CASE WHEN rd.dctyp > 104 AND rd.dctyp < 111 THEN rd.rcptamt ELSE 0 END) AS Other
+	FROM ".$dbPrefix_curr.".tbxdealrcpt r JOIN ".$dbPrefix_curr.".tbxdealrcptdtl rd ON r.rcptid = rd.rcptid AND r.cclflg = 0 AND r.cbflg = 0 AND r.rcptpaymode = 1
+	GROUP BY MONTH(rcptdt), dealid) d ON f.dealid = d.dealid AND f.mm = d.mm
+ 	WHERE f.sraid = $sraid GROUP BY f.mm ORDER BY yy DESC, mm DESC LIMIT 0,6";
 
 	$dashboard = executeSelect($sql);
 
