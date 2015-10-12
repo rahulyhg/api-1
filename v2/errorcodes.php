@@ -30,5 +30,10 @@ $error_codes = array(
 1027 => "No Updated deals found",
 1028 => "NOC Flag is not valid",
 1029 => "No Dashboard data found",
-1030 => "Foreclosure Flag is not valid");
+1030 => "Foreclosure Flag is not valid",
+1031 => "Mobile number is not valid",
+1032 => "Deal number is not valid",
+1033 => "Password is not valid",
+1034 => "Registration Failed",
+1035 => "Deal details not found");
 ?>

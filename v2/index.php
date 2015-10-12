@@ -34,6 +34,10 @@ $app->post('/postdiagnosticlogs', 'PostDiagnosticLogs');  //25 (Pending)
 $app->post('/postescalation', 'PostEscalation');  //26 (Pending)
 $app->get('/sendsms', 'sendsms');
 
+$app->post('/customerregister', 'customerregister');  //Consumer App 01
+$app->post('/customerlogin', 'customerlogin');  //Consumer App 02
+$app->get('/customerdealdetails/:dealid', 'getCustomerDealDetails');  //Consumer App 03
+
 $app->run();
 
 //TO-DO : Replace e.oldid with empid.
@@ -836,7 +840,7 @@ function format_ledger($l){
 		if($row['source'] == 1){ // This is a row for DUE EMI from Duelist so start a new row for this
 			$balance += $row['DueAmt'];
 			$rowStarted = 1;
-			$ledger[++$i] = array('serial_no' => NULL, 'dt' => NULL, 'due_amt' => NULL, 'recovered_emi' => NULL, 'balance' => NULL, 'status'=> NULL, 'remarks' => NULL, 'sra_name' => NULL, 'mode'=>NULL);
+			$ledger[++$i] = array('serial_no' => NULL, 'dt' => NULL, 'due_amt' => NULL, 'recovered_emi' => NULL, 'balance' => NULL, 'status'=> NULL, 'remarks' => NULL, 'sra_name' => NULL, 'mode'=>NULL, 'cbdt' =>NULL, 'ccldt' =>NULL, 'cbrsn' =>NULL);
 			$ledger[$i]['serial_no'] = ++$p; $ledger[$i]['dt'] = $row['dDate']; $ledger[$i]['due_amt'] = $row['DueAmt'];
 			$last_dDate = $row['dDate'];
 		}
@@ -849,7 +853,7 @@ function format_ledger($l){
 			if($rowStarted == 1 & $last_dDate == $row['rDate']){
 			}
 			else{
-				$ledger[++$i] = array('serial_no' => NULL, 'dt' => NULL, 'due_amt' => NULL, 'recovered_emi' => NULL, 'balance' => NULL, 'status'=> NULL, 'remarks' => NULL, 'sra_name' => NULL, 'mode'=>NULL);
+				$ledger[++$i] = array('serial_no' => NULL, 'dt' => NULL, 'due_amt' => NULL, 'recovered_emi' => NULL, 'balance' => NULL, 'status'=> NULL, 'remarks' => NULL, 'sra_name' => NULL, 'mode'=>NULL, 'cbdt' =>NULL, 'ccldt' =>NULL, 'cbrsn' =>NULL);
 				$rowStarted = 1;
 			}
 			if($row['CBFlg']== 0 && $row['CCLflg']==0){
@@ -861,6 +865,9 @@ function format_ledger($l){
 			$ledger[$i]['remarks'] = $row['Remarks'];
 			$ledger[$i]['sra_name'] = $row['sranm'];
 			$ledger[$i]['mode'] = $row['mode'];
+			$ledger[$i]['cbdt'] = $row['cbdt'];
+			$ledger[$i]['ccldt'] = $row['ccldt'];
+			$ledger[$i]['cbrsn'] = $row['cbrsn'];
 			$rowStarted = 0;
 		}
 		$ledger[$i]['balance'] = nf($balance, true);
@@ -1053,5 +1060,196 @@ function foreclosure($dealid){
 		return round(($foreclosure_amt)+($od)+($other));
 	}
   */
+}
+
+
+
+
+function customerregister(){
+	$dbPrefix = $_SESSION['DB_PREFIX'];
+	$request = Slim::getInstance()->request();
+
+	$mobile = $request->params('mobile');
+	$dealno = $request->params('dealno');
+	$password = $request->params('password');
+
+	if (!ctype_digit($mobile)){
+		$response = error_code(1031);
+		echo json_encode($response);
+		return;
+	}
+	if (!ctype_digit($dealno)){
+		$response = error_code(1032);
+		echo json_encode($response);
+		return;
+	}
+	if (!ctype_digit($password)){
+		$response = error_code(1033);
+		echo json_encode($response);
+		return;
+	}
+	if(is_numeric($dealno)){
+		if(strlen($dealno) < 6){
+      		$dealno = str_pad($dealno, 6, "0", STR_PAD_LEFT);
+        }
+    }
+	$sql_register = "select pkid from ".$dbPrefix.".tbmdeal where dealno='$dealno' and mobile = '$mobile'";
+	$pkid_register = executeSingleSelect($sql_register);
+
+	$sql_update = "update ".$dbPrefix.".tbmcustomerlogin set CustPassword = '$password' where CustMobile='$mobile'";
+
+	$response = array();
+		if($pkid_register>0){
+
+			$affectedrows = executeUpdate($sql_update);
+
+			$response = array();
+				if($affectedrows>0){
+				    $response["success"] = 1;
+				    $response["message"] = 'Successfully Register';
+				}
+				else{
+					$response = error_code(1034);
+					echo json_encode($response);
+					return;
+				}
+		}
+		else{
+			$response = error_code(1034);
+		}
+	echo json_encode($response);
+}
+
+function customerlogin(){
+	$dbPrefix = $_SESSION['DB_PREFIX'];
+	$request = Slim::getInstance()->request();
+
+	$mobile = $request->params('mobile');
+	$password = $request->params('password');
+
+	if (!ctype_digit($mobile)){
+		$response = error_code(1031);
+		echo json_encode($response);
+		return;
+	}
+	if (!ctype_digit($password)){
+		$response = error_code(1033);
+		echo json_encode($response);
+		return;
+	}
+
+	$sql_login = "select custid from ".$dbPrefix.".tbmcustomerlogin where custmobile='$mobile' and custpassword = '$password'";
+	$loginid = executeSingleSelect($sql_login);
+
+	$sql_profile = "select d.dealid,d.dealno,case when d.dealsts = 1 then 'Active' when d.dealsts = 2 then 'Draft' when d.dealsts = 3 then 'Closed' end as dealstatus,concat(v.make, ' ', v.model, ' ',v.modelyy) as dealvehicle,d.dealnm as name,null as dob,d.mobile,d.mobile2,d.tel1,d.tel2,d.email,trim(concat(d.add1, ' ', d.add2, ' ',d.area, ' ',d.tahasil)) as address from ".$dbPrefix.".tbmdeal d join ".$dbPrefix.".tbmdealvehicle v on d.dealid = v.dealid where d.mobile = '$mobile'";
+
+	$sql_centreaddress = "select ca.centreid,d.centre,tcase(concat(ca.line1, ' ', ca.line2, ' ', ca.street, ' ', ca.area, ' ', ca.city, ' ', ca.pincode)) as address,ca.phno,ca.email from ".$dbPrefix.".tbmdeal d join ".$dbPrefix.".tbmcentre c on d.centre = c.centrenm join ".$dbPrefix.".tbmcentreaddrss ca on c.centreid = ca.centreid where d.mobile = '$mobile'";
+	$centreaddress = executeSelect($sql_centreaddress);
+
+	$response = array();
+		if($loginid>0){
+			$profile = executeSelect($sql_profile);
+			$response = array();
+				if($profile['row_count']>0){
+					$response["success"] = 1;
+				    $response["message"] = 'Successfully Logged In';
+				}
+				else{
+					$response = error_code(1000);
+					echo json_encode($response);
+					return;
+				}
+
+				$index=$centreaddress['row_count'];
+				$centreaddress['result'][$index]= array();
+				$centreaddress['result'][$index]["centreid"]='0';
+				$centreaddress['result'][$index]["centre"]='NAGPUR (Head Office)';
+				$centreaddress['result'][$index]["address"]='Plot No 1 Manoj Building 2nd floor, Central Bazzar Road, Ramdas Peth, Nagpur - 440010';
+				$centreaddress['result'][$index]["phno"]='9209058000';
+				$centreaddress['result'][$index]["email"]='';
+				$centreaddress["row_count"]=$centreaddress['row_count']+1;
+				$centreaddress["found_rows"]=$centreaddress["row_count"];
+
+				$profile['result'][0]['centreaddress'] = $centreaddress;
+
+				$response["Profile"] = $profile;
+				echo json_encode($response);
+				return;
+		}
+		else{
+			$response = error_code(1000);
+		}
+	echo json_encode($response);
+}
+
+
+function getCustomerDealDetails($dealid) {
+	$dbPrefix = $_SESSION['DB_PREFIX'];
+    $dbPrefix_curr = $_SESSION['DB_PREFIX_CURR'];
+    $dbPrefix_last = $_SESSION['DB_PREFIX_LAST'];
+
+	$sql = "select d.dealid as deal_id, d.dealno as deal_no,case when d.dealsts = 1 then 'Active' when d.dealsts = 2 then 'Draft' when d.dealsts = 3 then 'Closed' end as deal_status,round(d.financeamt) as loan_amt,(case when d.paytype=1 then 'PDC' when d.paytype=2 then 'ECS' when d.paytype=3 then 'Direct Debit' end) as payment_mode,tcase(concat(dv.make, ' ', dv.model, ' ',dv.modelyy)) as vehicle_model, dv.VhclColour as vehicle_color, dv.Chasis as vehicle_chasis_no, dv.EngineNo as vehicle_engine_no, dv.RTORegNo as vehicle_rto_reg_no,
+	DATE_FORMAT(d.hpdt, '%d-%m-%Y') as hpdt,DATE_FORMAT(d.startduedt, '%d-%b-%y') as emi_startdt,DATE_FORMAT(d.hpexpdt, '%d-%b-%y') as emi_enddt,d.period as emi_tenure,round(ps.MthlyAmt+ps.CollectionChrgs) as emi_amt,tcase(b.BrkrNm) as dealer_name
+	FROM ".$dbPrefix.".tbmdeal d
+	join ".$dbPrefix.".tbmdealvehicle dv on d.dealid=dv.dealid and d.dealid = $dealid
+	join ".$dbPrefix.".tbmbroker b on d.brkrid = b.brkrid
+	join ".$dbPrefix.".tbmpmntschd ps on d.dealid = ps.dealid";
+	$dealdetails = executeSelect($sql);
+
+	$sql_salesman = "select s.salesmannm as salesman_name,(case when s.active=2 then s.mobile when s.active=1 then null end) as salesman_mobile from tbmsalesman s join tbadealsalesman sa on s.salesmanid=sa.salesmanid where sa.dealid=$dealid";
+	$salesman = executeSelect($sql_salesman);
+	$dealdetails['result'][0]['salesman_name']=$salesman['result'][0]['salesman_name'];
+	$dealdetails['result'][0]['salesman_mobile']=$salesman['result'][0]['salesman_mobile'];
+
+	$sql_guarantor = "select tcase(GrtrNm) as name, tcase(concat(add1, ' ', add2, ' ', area, ' ', tahasil, ' ', city)) as address, mobile as mobile from ".$dbPrefix.".tbmdealguarantors where DealId=$dealid";
+	$guarantor = executeSelect($sql_guarantor);
+
+	$sql_noc = "SELECT n2.nocno, DATE_FORMAT(n3.nocdate,'%d-%b-%y') AS senttocustomerdt, DATE_FORMAT(n3.rtndate,'%d-%b-%y') AS returndt,DATE_FORMAT(n3.senddate,'%d-%b-%y') as senttosradt
+	FROM ".$dbPrefix.".tbadealnocpmnt n1 LEFT JOIN ".$dbPrefix.".tbadealnoc n2  ON n1.dealid = n2.dealid LEFT JOIN ".$dbPrefix.".tbadealcustnoc AS n3 ON n1.dealid = n3.dealid WHERE n1.dealid =$dealid";
+	$noc = executeSelect($sql_noc);
+
+	$sql_charges = "SELECT
+	round(SUM(CASE WHEN dctyp = 102 THEN Chrgsapplied - chrgsrcvd ELSE 0 END)) AS Clearing,
+	round(SUM(CASE WHEN dctyp = 103 THEN Chrgsapplied - chrgsrcvd ELSE 0 END)) AS Bouncing,
+	round(SUM(CASE WHEN dctyp = 104 THEN Chrgsapplied - chrgsrcvd ELSE 0 END)) AS Penalty,
+	round(SUM(CASE WHEN dctyp = 105 THEN Chrgsapplied - chrgsrcvd ELSE 0 END)) AS Seizing,
+	round(SUM(CASE WHEN dctyp = 106 THEN Chrgsapplied - chrgsrcvd ELSE 0 END)) AS Legal,
+	round(SUM(CASE WHEN dctyp = 107 THEN Chrgsapplied - chrgsrcvd ELSE 0 END)) AS Other,
+	round(SUM(CASE WHEN dctyp IN (101,111) THEN chrgsrcvd ELSE 0 END)) AS rEMI
+	FROM ".$dbPrefix.".tbmdealchrgs WHERE dealid = $dealid";
+	$charges = executeSelect($sql_charges);
+	$sql_due = "select sum(round(DueAmt+CollectionChrgs)) as due from ".$dbPrefix.".tbmduelist where dealid = $dealid and Duedt <= curdate()";
+	$due = executeSingleSelect($sql_due);
+
+	$charges['result'][0]['due']=round($due);
+	$charges['result'][0]['currentOd'] = round($due-$charges['result'][0]['rEMI']);
+	$charges['result'][0]['totaldue'] =($charges['result'][0]['currentOd'])+($charges['result'][0]['Clearing'])+($charges['result'][0]['Bouncing'])+($charges['result'][0]['Penalty'])+($charges['result'][0]['Seizing'])+($charges['result'][0]['Legal'])+($charges['result'][0]['Other']);
+
+	$sql_seize = "select DATE_FORMAT(s.vhclszdt,'%d-%b-%y') as seizedt,DATE_FORMAT(r.vhclrldt,'%d-%b-%y') as releasedt,(case when r.vhclrldt is null then 'Seized' when r.vhclrldt is not null then 'Released' end) as status from ".$dbPrefix_curr.".tbxvhclsz s left join ".$dbPrefix_curr.".tbxvhclrl r on s.VhclSzRlId = r.VhclSzRlId where s.dealid = $dealid and s.cclflg = 0";
+	$seize = executeSelect($sql_seize);
+
+	$ledger = deal_ledger($dealid,$dealdetails['result'][0]['hpdt']);
+	$ledger1 = format_ledger($ledger);
+	$ledgers["row_count"]=count($ledger1);
+	$ledgers["found_rows"]=count($ledger1);
+	$ledgers['result']=$ledger1;
+
+	$dealdetails['result'][0]['guarantor'] = $guarantor;
+	$dealdetails['result'][0]['noc'] = $noc;
+	$dealdetails['result'][0]['charges'] = $charges;
+	$dealdetails['result'][0]['seize'] = $seize;
+	$dealdetails['result'][0]['ledgers'] = $ledgers;
+
+	$response = array();
+	if($dealdetails['row_count']>0){
+		$response["success"] = 1;
+	}
+	else{
+		$response = error_code(1035);
+		echo json_encode($response);
+		return;
+	}
+	$response["dealdetails"] = $dealdetails;
+	echo json_encode($response);
 }
 ?>
