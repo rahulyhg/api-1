@@ -1201,7 +1201,7 @@ function getCustomerDealDetails($dealid) {
 	$dealdetails['result'][0]['salesman_name']=$salesman['result'][0]['salesman_name'];
 	$dealdetails['result'][0]['salesman_mobile']=$salesman['result'][0]['salesman_mobile'];
 
-	$sql_guarantor = "select tcase(GrtrNm) as name, tcase(concat(add1, ' ', add2, ' ', area, ' ', tahasil, ' ', city)) as address, mobile as mobile from ".$dbPrefix.".tbmdealguarantors where DealId=$dealid";
+	$sql_guarantor = "select tcase(GrtrNm) as name, tcase(trim(concat(ifnull(add1,''), ' ', ifnull(add2,''), ' ', ifnull(area,''), ' ', ifnull(tahasil,''), ' ', ifnull(city,'')))) as address, mobile as mobile from ".$dbPrefix.".tbmdealguarantors where DealId=$dealid";
 	$guarantor = executeSelect($sql_guarantor);
 
 	$sql_noc = "SELECT n2.nocno, DATE_FORMAT(n3.nocdate,'%d-%b-%y') AS senttocustomerdt, DATE_FORMAT(n3.rtndate,'%d-%b-%y') AS returndt,DATE_FORMAT(n3.senddate,'%d-%b-%y') as senttosradt
