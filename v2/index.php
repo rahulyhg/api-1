@@ -1141,9 +1141,9 @@ function customerlogin(){
 	$sql_login = "select custid from ".$dbPrefix.".tbmcustomerlogin where custmobile='$mobile' and custpassword = '$password'";
 	$loginid = executeSingleSelect($sql_login);
 
-	$sql_profile = "select d.dealid,d.dealno,case when d.dealsts = 1 then 'Active' when d.dealsts = 2 then 'Draft' when d.dealsts = 3 then 'Closed' end as dealstatus,concat(v.make, ' ', v.model, ' ',v.modelyy) as dealvehicle,d.dealnm as name,null as dob,d.mobile,d.mobile2,d.tel1,d.tel2,d.email,trim(concat(d.add1, ' ', d.add2, ' ',d.area, ' ',d.tahasil)) as address from ".$dbPrefix.".tbmdeal d join ".$dbPrefix.".tbmdealvehicle v on d.dealid = v.dealid where d.mobile = '$mobile'";
+	$sql_profile = "select d.dealid,d.dealno,case when d.dealsts = 1 then 'Active' when d.dealsts = 2 then 'Draft' when d.dealsts = 3 then 'Closed' end as dealstatus,concat(v.make, ' ', v.model, ' ',v.modelyy) as dealvehicle,d.dealnm as name,null as dob,d.mobile,d.mobile2,d.tel1,d.tel2,d.email,trim(concat(d.add1, ' ', d.add2, ' ',d.area, ' ',d.tahasil)) as address from ".$dbPrefix.".tbmdeal d join ".$dbPrefix.".tbmdealvehicle v on d.dealid = v.dealid where d.mobile = '$mobile' order by d.dealsts asc,d.hpdt desc";
 
-	$sql_centreaddress = "select ca.centreid,d.centre,tcase(concat(ca.line1, ' ', ca.line2, ' ', ca.street, ' ', ca.area, ' ', ca.city, ' ', ca.pincode)) as address,ca.phno,ca.email from ".$dbPrefix.".tbmdeal d join ".$dbPrefix.".tbmcentre c on d.centre = c.centrenm join ".$dbPrefix.".tbmcentreaddrss ca on c.centreid = ca.centreid where d.mobile = '$mobile'";
+	$sql_centreaddress = "select distinct ca.centreid,d.centre,tcase(concat(ca.line1, ' ', ca.line2, ' ', ca.street, ' ', ca.area, ' ', ca.city, ' ', ca.pincode)) as address,ca.phno,ca.email from ".$dbPrefix.".tbmdeal d join ".$dbPrefix.".tbmcentre c on d.centre = c.centrenm join ".$dbPrefix.".tbmcentreaddrss ca on c.centreid = ca.centreid where d.mobile = '$mobile' or c.centreid=1 order by c.centreid asc";
 	$centreaddress = executeSelect($sql_centreaddress);
 
 	$response = array();
@@ -1159,16 +1159,6 @@ function customerlogin(){
 					echo json_encode($response);
 					return;
 				}
-
-				$index=$centreaddress['row_count'];
-				$centreaddress['result'][$index]= array();
-				$centreaddress['result'][$index]["centreid"]='0';
-				$centreaddress['result'][$index]["centre"]='NAGPUR (Head Office)';
-				$centreaddress['result'][$index]["address"]='Plot No 1 Manoj Building 2nd floor, Central Bazzar Road, Ramdas Peth, Nagpur - 440010';
-				$centreaddress['result'][$index]["phno"]='9209058000';
-				$centreaddress['result'][$index]["email"]='';
-				$centreaddress["row_count"]=$centreaddress['row_count']+1;
-				$centreaddress["found_rows"]=$centreaddress["row_count"];
 
 				$profile['result'][0]['centreaddress'] = $centreaddress;
 
