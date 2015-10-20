@@ -240,7 +240,7 @@ function getDeals($empid,$page) {
 	//$sraid = $_SESSION['userid'];
 	$sraid = $empid;
 
-    $sql = "select sql_calc_found_rows fr.dealid, fr.dealid, fr.dealno, tcase(fr.dealnm) as name,tcase(d.centre) as centre, tcase(fr.area) as area, tcase(fr.city) as city, tcase(fr.address) as address, fr.mobile, DATE_FORMAT(fr.hpdt, '%d-%m-%Y') as hpdt, round(fr.dueamt) as total_due,round(fr.OdDueAmt) as overdue, fr.dd as assigned_on, DATE_FORMAT(fr.CallerFollowupDt,'%d-%m-%Y') as caller_followup_dt,DATE_FORMAT(fr.SRAFollowupDt,'%d-%m-%Y') as sra_followup_dt, fr.rgid as bucket,round(d.financeamt) as finance_amt,round(fr.emi) as emi,d.period as tenure,DATE_FORMAT(d.hpexpdt, '%d-%m-%Y') as expiry_dt, DATE_FORMAT(d.startduedt, '%d') as emi_day, (case when d.paytype=1 then 'PDC' when d.paytype=2 then 'ECS' when d.paytype=3 then 'Direct Debit' end) as type, tcase(concat(dv.make, ' ', dv.model)) as vehicle_model, dv.VhclColour as vehicle_color, dv.Chasis as vehicle_chasis_no, dv.EngineNo as vehicle_engine_no, dv.RTORegNo as vehicle_rto_reg_no, tcase(b.BrkrNm) as dealer, tcase(trim(concat(ifnull(b.city,''), ' ', case when b.centre != b.city then b.centre else '' end))) as dealer_loc, fr.SalesmanId as salesman_id,s.SalesmanNm as salesman_name,s.Mobile as salesman_mobile
+    $sql = "select sql_calc_found_rows fr.dealid, fr.dealid, fr.dealno, tcase(fr.dealnm) as name,tcase(d.centre) as centre, tcase(fr.area) as area, tcase(fr.city) as city, tcase(fr.address) as address, fr.mobile, DATE_FORMAT(fr.hpdt, '%d-%m-%Y') as hpdt, round(fr.dueamt) as total_due,round(fr.OdDueAmt) as overdue, fr.dd as assigned_on,fr.rec_flg as recovered_flg, DATE_FORMAT(fr.CallerFollowupDt,'%d-%m-%Y') as caller_followup_dt,DATE_FORMAT(fr.SRAFollowupDt,'%d-%m-%Y') as sra_followup_dt, fr.rgid as bucket,round(d.financeamt) as finance_amt,round(fr.emi) as emi,d.period as tenure,DATE_FORMAT(d.hpexpdt, '%d-%m-%Y') as expiry_dt, DATE_FORMAT(d.startduedt, '%d') as emi_day, (case when d.paytype=1 then 'PDC' when d.paytype=2 then 'ECS' when d.paytype=3 then 'Direct Debit' end) as type, tcase(concat(dv.make, ' ', dv.model)) as vehicle_model, dv.VhclColour as vehicle_color, dv.Chasis as vehicle_chasis_no, dv.EngineNo as vehicle_engine_no, dv.RTORegNo as vehicle_rto_reg_no, tcase(b.BrkrNm) as dealer, tcase(trim(concat(ifnull(b.city,''), ' ', case when b.centre != b.city then b.centre else '' end))) as dealer_loc, fr.SalesmanId as salesman_id,s.SalesmanNm as salesman_name,s.Mobile as salesman_mobile
 	FROM ".$dbPrefix_curr.".tbxfieldrcvry fr
 	join ".$dbPrefix.".tbmdeal d
 	join ".$dbPrefix.".tbmdealvehicle dv
@@ -777,7 +777,7 @@ function getUpdatedDeals($empid,$lasttimestamp){
 	  	$response["message"] = 'Last timestamp is not in proper format';
 	}
 	else{
-		$sql = "SELECT sql_calc_found_rows fr.dealid, fr.dealno, tcase(fr.dealnm) as name, tcase(fr.city) as city, tcase(fr.area) as area,tcase(fr.address) as address, round(fr.OdDueAmt) as overdue, round(fr.DueAmt) as total_due, fr.rgid as bucket, fr.Mobile as mobile, fr.GuarantorMobile as guarantor_mobile, tcase(fr.model) as vehicle_model, fr.dd as assigned_on,DATE_FORMAT(fr.CallerFollowupDt,'%d-%m-%Y') as caller_followup_dt,DATE_FORMAT(fr.SRAFollowupDt,'%d-%m-%Y') as sra_followup_dt,dt.UpdateTimeStamp as update_timestamp from ".$dbPrefix_curr.".tbxfieldrcvry fr join ".$dbPrefix.".tbmdealtimestamp dt on fr.dealid=dt.dealid where fr.mm = ".date('n')." and fr.sraid = $sraid and dt.UpdateTimeStamp > '$lasttimestamp'";
+		$sql = "SELECT sql_calc_found_rows fr.dealid, fr.dealno, tcase(fr.dealnm) as name, tcase(fr.city) as city, tcase(fr.area) as area,tcase(fr.address) as address, round(fr.OdDueAmt) as overdue, round(fr.DueAmt) as total_due, fr.rgid as bucket, fr.Mobile as mobile, fr.GuarantorMobile as guarantor_mobile, tcase(fr.model) as vehicle_model, fr.dd as assigned_on,fr.rec_flg as recovered_flg,DATE_FORMAT(fr.CallerFollowupDt,'%d-%m-%Y') as caller_followup_dt,DATE_FORMAT(fr.SRAFollowupDt,'%d-%m-%Y') as sra_followup_dt,dt.UpdateTimeStamp as update_timestamp from ".$dbPrefix_curr.".tbxfieldrcvry fr join ".$dbPrefix.".tbmdealtimestamp dt on fr.dealid=dt.dealid where fr.mm = ".date('n')." and fr.sraid = $sraid and dt.UpdateTimeStamp > '$lasttimestamp'";
 
 		$updateddeals = executeSelect($sql);
 
@@ -1093,32 +1093,39 @@ function customerregister(){
       		$dealno = str_pad($dealno, 6, "0", STR_PAD_LEFT);
         }
     }
-	$sql_register = "select pkid from ".$dbPrefix.".tbmdeal where dealno='$dealno' and mobile = '$mobile'";
-	$pkid_register = executeSingleSelect($sql_register);
-
-	$sql_update = "update ".$dbPrefix.".tbmcustomerlogin set CustPassword = '$password' where CustMobile='$mobile'";
-
-	$response = array();
-		if($pkid_register>0){
-
-			$affectedrows = executeUpdate($sql_update);
-
-			$response = array();
-				if($affectedrows>0){
-				    $response["success"] = 1;
-				    $response["message"] = 'Successfully Register';
-				}
-				else{
-					$response = error_code(1034);
-					echo json_encode($response);
-					return;
-				}
+    $sql_login = "select custid from ".$dbPrefix.".tbmcustomerlogin where custmobile='$mobile' and custpassword = '$password'";
+	$loginid = executeSingleSelect($sql_login);
+		$response = array();
+		if($loginid>0){
+			$response = error_code(1036);
+			echo json_encode($response);
+			return;
 		}
 		else{
-			$response = error_code(1034);
+		    $sql_register = "select pkid from ".$dbPrefix.".tbmdeal where dealno='$dealno' and mobile = '$mobile'";
+			$pkid_register = executeSingleSelect($sql_register);
+			if($pkid_register>0){
+			   	$sql = "INSERT INTO ".$dbPrefix.".tbmcustomerlogin (custmobile,custpassword) VALUES ('$mobile','$password')";
+	           	$lastid = executeInsert($sql);
+	           	if($lastid>0){
+	          		$response["success"] = 1;
+					$response["message"] = 'Successfully Register';
+	           	}
+	           	else{
+	            	$response = error_code(1034);
+				    echo json_encode($response);
+				    return;
+				}
+	      	}
+			else{
+				$response = error_code(1034);
+				echo json_encode($response);
+				return;
+			}
 		}
 	echo json_encode($response);
 }
+
 
 function customerlogin(){
 	$dbPrefix = $_SESSION['DB_PREFIX'];

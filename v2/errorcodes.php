@@ -35,5 +35,6 @@ $error_codes = array(
 1032 => "Deal number is not valid",
 1033 => "Password is not valid",
 1034 => "Registration Failed",
-1035 => "Deal details not found");
+1035 => "Deal details not found",
+1036 => "Already Registered");
 ?>
