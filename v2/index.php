@@ -32,7 +32,7 @@ $app->get('/notifications/:empid/:lastid', 'getNotifications');  //23
 $app->get('/updateddeals/:empid/:lasttimestamp', 'getUpdatedDeals');  //24
 $app->post('/postdiagnosticlogs', 'PostDiagnosticLogs');  //25 (Pending)
 $app->post('/postescalation', 'PostEscalation');  //26 (Pending)
-$app->get('/sendsms', 'sendsms');
+$app->get('/sendsms/:id', 'sendsms');
 
 $app->post('/customerregister', 'customerregister');  //Consumer App 01
 $app->post('/customerlogin', 'customerlogin');  //Consumer App 02
@@ -808,11 +808,12 @@ function PostEscalation(){
 
 }
 
-function sendsms(){
+function sendsms($id){
 	$str = implode(",",$_REQUEST);
 	$file = 'sms.txt';
 	file_put_contents($file, $str, FILE_APPEND);
-	echo "Done";
+	//echo "Done";
+	echo json_encode($id.''.$str);
 }
 
 function check_session(){
