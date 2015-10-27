@@ -32,7 +32,8 @@ $app->get('/notifications/:empid/:lastid', 'getNotifications');  //23
 $app->get('/updateddeals/:empid/:lasttimestamp', 'getUpdatedDeals');  //24
 $app->post('/postdiagnosticlogs', 'PostDiagnosticLogs');  //25 (Pending)
 $app->post('/postescalation', 'PostEscalation');  //26 (Pending)
-$app->get('/sendsms/:id', 'sendsms');
+$app->get('/smsresponse/:id', 'smsresponse');
+$app->get('/sendsms/:mobileno/:msg/:dealno/:msgtag/:sentto', 'sendsms');
 
 $app->post('/customerregister', 'customerregister');  //Consumer App 01
 $app->post('/customerlogin', 'customerlogin');  //Consumer App 02
@@ -808,13 +809,63 @@ function PostEscalation(){
 
 }
 
-function sendsms($id){
-	$str = implode(",",$_REQUEST);
-	$file = 'sms.txt';
-	file_put_contents($file, $str, FILE_APPEND);
-	//echo "Done";
-	echo json_encode($id.''.$str);
+
+function smsresponse($id){
+	$dbPrefix_curr = $_SESSION['DB_PREFIX_CURR'];
+    $req = (array) Slim::getInstance()->request();
+  //print_a($req);
+    $str =  json_encode($req);
+  //echo $str;
+    $file = "sms-$id.txt";
+    file_put_contents($file, $str, FILE_APPEND);
+
+        if(isset($req["\0*\0".'get']['unique_id'])){
+	    	$unique_id = $req["\0*\0".'get']['unique_id'];
+	    	$reason = $req["\0*\0".'get']['reason'];
+	    	$to = $req["\0*\0".'get']['to'];
+	    	$from = $req["\0*\0".'get']['from'];
+	    	$time = $req["\0*\0".'get']['time'];
+        	$status = $req["\0*\0".'get']['status'];
+
+        	$sql_update = "update ".$dbPrefix_curr.".tbxsms set status = (case when '$reason' = '000' then '3' else '4' end),reason = (case when '$reason' = '001' then 'Invalid Number' when '$reason' = '002' then 'Absent Subscriber' when '$reason' = '003' then 'Memory Capacity Exceeded' when '$reason' = '004' then 'Mobile Equipment Error' when '$reason' = '005' then 'Network Error' when '$reason' = '006' then 'Barring' when '$reason' = '007' then 'Invalid Sender ID' when '$reason' = '008' then 'Dropped' when '$reason' = '009' then 'NDNC Failed' when '$reason' = 100 then 'Misc. Error' else '$reason' end),ReceivedDtTm = '$time' where pkid='$id'";
+		    $affectedrows = executeUpdate($sql_update);
+
+		    $response = array();
+				if($affectedrows>0){
+					$response["success"] = 1;
+					$response["message"] = 'Successfully Updated';
+				}
+				else{
+					$response["success"] = 0;
+					$response["message"] = 'Failed to Update';
+				}
+				echo json_encode($response);
+		}
+	    else{
+	   		 echo json_encode("Data Not Found");
+    	}
 }
+
+
+function sendsms($mobileno,$msg,$dealno,$msgtag,$sentto){
+	$dbPrefix_curr = $_SESSION['DB_PREFIX_CURR'];
+
+	$sql_insert = "insert into ".$dbPrefix_curr.".tbxsms(CmpnyCd,MsgDtTm,SentDtTm,Mobile,Message,MsgTag,DealNo,MsgPriority,status,SentTo)
+	values ('LKSA',now(),now(),'$mobileno','$msg','$msgtag','$dealno',0,1,'$sentto')";
+
+	$lastid = executeInsert($sql_insert);
+		if($lastid>0){
+			$response["success"] = 1;
+			$response["message"] = 'Insert Successful';
+		}
+		else{
+			$response["success"] = 0;
+			$response["message"] = 'Failed To Insert';
+		}
+	echo json_encode($response);
+}
+
+
 
 function check_session(){
 	if(!isset($_SESSION['userid'])){
