@@ -615,22 +615,6 @@ function postDues(){
 
 	$dctyp_amt = $request->params('dctyp_amt');
 
-
-	$str = PHP_EOL."JrnlNo:".$jrnlno."  "."EmpId:".$empid."  "."TranNo:".$tranno."  "."DealNo:".$dealno."  "."RcptDt:".$rcptdt."  "."PayMode:".$paymode."  "."ChqNo:".$chqno."  "."ChqDt:".$chqdt."  "."BankNm:".$banknm."  "."Place:".$place."  "."TranTime:".$trantime."  "."RcptMode:".$rcptmode."  "."TotAmt:".$totamt."  "."DcTyp_Amt:".$dctyp_amt.PHP_EOL;
-	$file = 'PostDuesEntry.txt';
-	$count = file_put_contents($file, $str, FILE_APPEND);
-
-	if ($count > 0){
-			$response["success"] = 1;
-			$response["message"] = 'Dues successfully posted';
-		}
-		else{
-			$response = error_code(1042);
-		}
-		echo json_encode($response);
-
-/*
-
 	$sql = "INSERT INTO ".$dbPrefix_curr.".tbxrcptjrnl (JrnlNo,TranNo,EmpId,DealNo,RcptDate,TotAmt,PayMode,ChqNo,ChqDate,BankName,Place,TranTime,RcptMode) VALUES ('$jrnlno', '$tranno', '$empid', '$dealno', '$rcptdt', '$totamt', '$paymode', '$chqno', '$chqdt', '$banknm', '$place', '$trantime', '$rcptmode')";
 	$lastid = executeInsert($sql);
 
@@ -657,7 +641,6 @@ function postDues(){
 		$response = error_code(1042);
 	}
 	echo json_encode($response);
-*/
 }
 
 //15
@@ -790,22 +773,6 @@ function postBankDeposit(){
 
 	$dealno_rcptno_amt = $request->params('dealno_rcptno_amt');
 
-
-
-	$str = PHP_EOL."JrnlNo:".$jrnlno."  "."EmpId:".$empid."  "."TranNo:".$tranno."  "."TranDate:".$trandate."  "."TranTime:".$trantime."  "."bankid:".$bankid."  "."bankacid:".$bankacid."  "."branchcode:".$branchcode."  "."branchid:".$branchid."  "."amount:".$amount."  "."dealno_rcptno_amt:".$dealno_rcptno_amt.PHP_EOL;
-	$file = 'PostBankDepositEntry.txt';
-	$count = file_put_contents($file, $str, FILE_APPEND);
-
-	if ($count > 0){
-			$response["success"] = 1;
-			$response["message"] = 'Bank Deposit successfully posted';
-		}
-		else{
-			$response = error_code(1043);
-		}
-	echo json_encode($response);
-
-/*
 	$sql = "INSERT INTO ".$dbPrefix_curr.".tbxdealpmntjrnl (JrnlNo,TranNo,EmpId,TranDate,BankId,BankAcId,BranchId,BranchCode,Amount,TranTime,InsertUserId) VALUES ('$jrnlno', '$tranno', '$empid', '$trandate', '$bankid', '$bankacid', '$branchid', '$branchcode', '$amount', '$trantime', '$empid')";
 	$lastid = executeInsert($sql);
 
@@ -836,7 +803,6 @@ function postBankDeposit(){
 		$response = error_code(1043);
 	}
 	echo json_encode($response);
-*/
 }
 
 
