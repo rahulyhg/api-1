@@ -36,5 +36,14 @@ $error_codes = array(
 1033 => "Password is not valid",
 1034 => "Registration Failed",
 1035 => "Deal details not found",
-1036 => "Already Registered");
+1036 => "Already Registered",
+1037 => "No Proposals Found",
+1038 => "Salesman not registered",
+1039 => "Failed to create new Proposal",
+1040 => "Failed to update Proposal",
+1041 => "Address not found",
+1042 => "Failed to post Dues",
+1043 => "Failed to post Bank Deposit",
+1044 => "No Deposit History Found",
+1045 => "No Not Deposited Receipt Found");
 ?>

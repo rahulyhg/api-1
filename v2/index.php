@@ -12,20 +12,20 @@ $app->get('/staticdata/:empid', 'getStaticData');  //03
 $app->get('/contacts/:lastid', 'getContacts');  //04
 $app->get('/deals/:empid/:page', 'getDeals');  //05
 $app->get('/dashboards/:empid', 'getDashboards');  //06
-$app->get('/notdepositedreceipts/:page', 'getNotDepositedReceipts');  //07 (Pending)
-$app->get('/deposithistory/:page', 'getDepositHistory');  //08 (Pending)
+$app->get('/notdepositedreceipts/:empid', 'getNotDepositedReceipts');  //07
+$app->get('/deposithistory/:empid', 'getDepositHistory');  //08
 $app->get('/daywisecollection/:empid', 'getDaywiseCollection');  //09
 $app->get('/searchdeals/:empid/:query/:page', 'searchDeals');  //10
 $app->get('/deal/:dealid', 'getDeal');  //11
 $app->post('/postlogs', 'postLogs');  //12
-$app->get('/dues/:dealid/:foreclosure', 'getDues');  //13 (Pending)
+$app->get('/dues/:dealid/:foreclosure', 'getDues');  //13
 $app->post('/postdues', 'postDues');  //14 (Pending)
 $app->get('/deallogs/:dealid', 'getDealLogs');  //15
 $app->get('/dealledgers/:dealid', 'getDealLedger');  //16
 $app->post('/postmobileno', 'postMobileNo');  //17 (Pending)
 $app->post('/postaddress', 'postAddress');  //18 (Pending)
 $app->post('/postrtoregno', 'postRTORegNo');  //19
-$app->post('/postbankdeposit', 'postBankDeposit');  //20 (Pending)
+$app->post('/postbankdeposit', 'postBankDeposit');  //20
 $app->post('/updateappinfo', 'updateAppInfo');  //21
 $app->post('/updatelastlogin', 'updateLastLogin');  //22
 $app->get('/notifications/:empid/:lastid', 'getNotifications');  //23
@@ -313,22 +313,79 @@ function getDashboards($empid){
 
 
 //07
-function getNotDepositedReceipts($page){
+function getNotDepositedReceipts($empid){
 	$dbPrefix = $_SESSION['DB_PREFIX'];
 	$dbPrefix_curr = $_SESSION['DB_PREFIX_CURR'];
 	$dbPrefix_last = $_SESSION['DB_PREFIX_LAST'];
-	$limit = $_SESSION['API_ROW_LIMIT'];
-	$start = ($page-1) * $limit;
+	$sraid = $empid;
+
+	$sql_posid = "select POSId from ".$dbPrefix.".tbasrapos where BrkrId = '$sraid' ORDER BY wefdt DESC LIMIT 1";
+	$posid = executeSingleSelect($sql_posid);
+	$pos = substr($posid, 0, 2);
+	if($pos === 'M-'){
+
+		$sql = "SELECT pj.RcptNo,rj.RcptNo,rj.JrnlNo,rj.TranNo,rj.RcptDate,rj.TranTime,rj.RcptMode FROM ".$dbPrefix_curr.".tbxrcptjrnl rj LEFT JOIN (SELECT pj.JrnlNo, pjd.RcptNo, pj.POSId  FROM ".$dbPrefix_curr.".tbxdealpmntjrnl pj
+		JOIN ".$dbPrefix_curr.".tbxdealpmntjrnldtl AS pjd ON pj.JrnlNo = pjd.JrnlNo WHERE POSID = '$posid') AS pj ON rj.tranNo=pj.RcptNo WHERE rj.POSID = '$posid' HAVING pj.RcptNo IS NULL";
+		$notdepositreceipt = executeSelect($sql);
+
+		foreach($notdepositreceipt['result'] as $i=> $jrnl){
+	   		$jrnlno = $jrnl['JrnlNo'];
+
+			$sql_recdamt = "SELECT DcTyp,RecdAmt FROM ".$dbPrefix_curr.".tbxrcptjrnldtl WHERE JrnlNo = '$jrnlno'";
+		   	$recdamount = executeSelect($sql_recdamt);
+
+			$notdepositreceipt['result'][$i]['RecdAmt'] = $recdamount;
+		}
+
+		$response = array();
+			if($notdepositreceipt['row_count']>0){
+				$response["success"] = 1;
+			}
+			else{
+			    $response = error_code(1045);
+				echo json_encode($response);
+				return;
+			}
+		$response["notdepositreceipt"] = $notdepositreceipt;
+	}
+	else{
+		$response = error_code(1045);
+		echo json_encode($response);
+		return;
+	}
+	echo json_encode($response);
 }
 
 
 //08
-function getDepositHistory($page){
+function getDepositHistory($empid){
 	$dbPrefix = $_SESSION['DB_PREFIX'];
 	$dbPrefix_curr = $_SESSION['DB_PREFIX_CURR'];
 	$dbPrefix_last = $_SESSION['DB_PREFIX_LAST'];
-	$limit = $_SESSION['API_ROW_LIMIT'];
-	$start = ($page-1) * $limit;
+	$sraid = $empid;
+
+	$sql_posid = "select POSId from ".$dbPrefix.".tbasrapos where BrkrId = '$sraid'";
+	$posid = executeSingleSelect($sql_posid);
+
+	$sql = "SELECT * FROM (
+	select TranDate,BankId,BranchId,Amount from ".$dbPrefix_curr.".tbxdealpmntjrnl where POSId = '$posid '
+	UNION
+	select TranDate,BankId,BranchId,Amount from ".$dbPrefix_last.".tbxdealpmntjrnl where POSId = '$posid ')t1 ORDER BY TranDate DESC LIMIT 31";
+
+	$deposithistory = executeSelect($sql);
+
+	$response = array();
+		if($deposithistory['row_count']>0){
+			$response["success"] = 1;
+		}
+		else{
+		    $response = error_code(1044);
+			echo json_encode($response);
+			return;
+		}
+	$response["deposithistory"] = $deposithistory;
+	echo json_encode($response);
+
 }
 
 
@@ -539,7 +596,68 @@ function getDues($dealid, $foreclosure){
 
 //14
 function postDues(){
+	$dbPrefix_curr = $_SESSION['DB_PREFIX_CURR'];
+	$request = Slim::getInstance()->request();
 
+	$jrnlno = 'J-0000';
+	$empid = $request->params('empid');
+	$tranno = $request->params('tranno');
+	$dealno = $request->params('dealno');
+	$rcptdt = $request->params('rcptdt');
+	$paymode = $request->params('paymode');
+	$chqno = $request->params('chqno');
+	$chqdt = $request->params('chqdt');
+	$banknm = $request->params('banknm');
+	$place = $request->params('place');
+	$trantime = $request->params('trantime');
+	$rcptmode = $request->params('rcptmode');
+	$totamt = $request->params('totamt');
+
+	$dctyp_amt = $request->params('dctyp_amt');
+
+
+	$str = PHP_EOL."JrnlNo:".$jrnlno."  "."EmpId:".$empid."  "."TranNo:".$tranno."  "."DealNo:".$dealno."  "."RcptDt:".$rcptdt."  "."PayMode:".$paymode."  "."ChqNo:".$chqno."  "."ChqDt:".$chqdt."  "."BankNm:".$banknm."  "."Place:".$place."  "."TranTime:".$trantime."  "."RcptMode:".$rcptmode."  "."TotAmt:".$totamt."  "."DcTyp_Amt:".$dctyp_amt.PHP_EOL;
+	$file = 'PostDuesEntry.txt';
+	$count = file_put_contents($file, $str, FILE_APPEND);
+
+	if ($count > 0){
+			$response["success"] = 1;
+			$response["message"] = 'Dues successfully posted';
+		}
+		else{
+			$response = error_code(1042);
+		}
+		echo json_encode($response);
+
+/*
+
+	$sql = "INSERT INTO ".$dbPrefix_curr.".tbxrcptjrnl (JrnlNo,TranNo,EmpId,DealNo,RcptDate,TotAmt,PayMode,ChqNo,ChqDate,BankName,Place,TranTime,RcptMode) VALUES ('$jrnlno', '$tranno', '$empid', '$dealno', '$rcptdt', '$totamt', '$paymode', '$chqno', '$chqdt', '$banknm', '$place', '$trantime', '$rcptmode')";
+	$lastid = executeInsert($sql);
+
+	$response = array();
+	if($lastid > 0){
+		$arr_dctyp_amt=explode(" ",$dctyp_amt);
+		for($i = 0; $i < sizeof($arr_dctyp_amt); $i++){
+			$dctyp_dctypamt = explode(",",$arr_dctyp_amt[$i]);
+			$dctyp = $dctyp_dctypamt[0];
+			$dctypamt = $dctyp_dctypamt[1];
+
+			$sql1= "INSERT INTO ".$dbPrefix_curr.".tbxrcptjrnldtl (JrnlNo,DCTyp,RecdAmt) VALUES ('$jrnlno', '$dctyp', '$dctypamt')";
+			$lastinsertid = executeInsert($sql1);
+		}
+		if ($lastinsertid > 0){
+			$response["success"] = 1;
+			$response["message"] = 'Dues successfully posted';
+		}
+		else{
+			$response = error_code(1042);
+		}
+	}
+	else{
+		$response = error_code(1042);
+	}
+	echo json_encode($response);
+*/
 }
 
 //15
@@ -655,8 +773,73 @@ function postRTORegNo() {
 
 //20
 function postBankDeposit(){
+	$dbPrefix_curr = $_SESSION['DB_PREFIX_CURR'];
+	$request = Slim::getInstance()->request();
 
+	$jrnlno = 'J-0000';
+	$empid = $request->params('empid');
+	$tranno = $request->params('tranno');
+	$trandate = $request->params('trandate');
+	$trantime = $request->params('trantime');
+
+	$bankid = $request->params('bankid');
+	$bankacid = $request->params('bankacid');
+	$branchcode = $request->params('branchcode');
+	$branchid = $request->params('branchid');
+	$amount = $request->params('amount');
+
+	$dealno_rcptno_amt = $request->params('dealno_rcptno_amt');
+
+
+
+	$str = PHP_EOL."JrnlNo:".$jrnlno."  "."EmpId:".$empid."  "."TranNo:".$tranno."  "."TranDate:".$trandate."  "."TranTime:".$trantime."  "."bankid:".$bankid."  "."bankacid:".$bankacid."  "."branchcode:".$branchcode."  "."branchid:".$branchid."  "."amount:".$amount."  "."dealno_rcptno_amt:".$dealno_rcptno_amt.PHP_EOL;
+	$file = 'PostBankDepositEntry.txt';
+	$count = file_put_contents($file, $str, FILE_APPEND);
+
+	if ($count > 0){
+			$response["success"] = 1;
+			$response["message"] = 'Bank Deposit successfully posted';
+		}
+		else{
+			$response = error_code(1043);
+		}
+	echo json_encode($response);
+
+/*
+	$sql = "INSERT INTO ".$dbPrefix_curr.".tbxdealpmntjrnl (JrnlNo,TranNo,EmpId,TranDate,BankId,BankAcId,BranchId,BranchCode,Amount,TranTime,InsertUserId) VALUES ('$jrnlno', '$tranno', '$empid', '$trandate', '$bankid', '$bankacid', '$branchid', '$branchcode', '$amount', '$trantime', '$empid')";
+	$lastid = executeInsert($sql);
+
+	$response = array();
+	if($lastid > 0){
+
+		$arr_dealno_rcptno_amt=explode(" ",$dealno_rcptno_amt);
+
+		for($i = 0; $i < sizeof($arr_dealno_rcptno_amt); $i++){
+			$dealno_rcptno_rcptamt = explode(",",$arr_dealno_rcptno_amt[$i]);
+			$dealno = $dealno_rcptno_rcptamt[0];
+			$rcptno = $dealno_rcptno_rcptamt[1];
+			$rcptamt = $dealno_rcptno_rcptamt[2];
+
+	 		$sql1= "INSERT INTO ".$dbPrefix_curr.".tbxdealpmntjrnldtl (JrnlNo,DealNo,RcptNo,RcptAmt) VALUES ('$jrnlno', '$dealno', '$rcptno', '$rcptamt')";
+			$lastinsertid = executeInsert($sql1);
+		}
+
+		if ($lastinsertid > 0){
+			$response["success"] = 1;
+			$response["message"] = 'Bank Deposit successfully posted';
+		}
+		else{
+			$response = error_code(1043);
+		}
+	}
+	else{
+		$response = error_code(1043);
+	}
+	echo json_encode($response);
+*/
 }
+
+
 
 //To-Do : Replace $empid1 with $empid.
 //21
@@ -827,7 +1010,7 @@ function smsresponse($id){
 	    	$time = $req["\0*\0".'get']['time'];
         	$status = $req["\0*\0".'get']['status'];
 
-        	$sql_update = "update ".$dbPrefix_curr.".tbxsms set status = (case when '$reason' = '000' then '3' else '4' end),reason = (case when '$reason' = '001' then 'Invalid Number' when '$reason' = '002' then 'Absent Subscriber' when '$reason' = '003' then 'Memory Capacity Exceeded' when '$reason' = '004' then 'Mobile Equipment Error' when '$reason' = '005' then 'Network Error' when '$reason' = '006' then 'Barring' when '$reason' = '007' then 'Invalid Sender ID' when '$reason' = '008' then 'Dropped' when '$reason' = '009' then 'NDNC Failed' when '$reason' = 100 then 'Misc. Error' else '$reason' end),ReceivedDtTm = '$time' where pkid='$id'";
+        	$sql_update = "update ".$dbPrefix_curr.".tbxsms set status = (case when '$reason' = '000' then '3' else '4' end),reason = (case when '$reason' = '000' then 'Sent' when '$reason' = '001' then 'Invalid Number' when '$reason' = '002' then 'Absent Subscriber' when '$reason' = '003' then 'Memory Capacity Exceeded' when '$reason' = '004' then 'Mobile Equipment Error' when '$reason' = '005' then 'Network Error' when '$reason' = '006' then 'Barring' when '$reason' = '007' then 'Invalid Sender ID' when '$reason' = '008' then 'Dropped' when '$reason' = '009' then 'NDNC Failed' when '$reason' = 100 then 'Misc. Error' else '$reason' end),ReceivedDtTm = '$time' where pkid='$id'";
 		    $affectedrows = executeUpdate($sql_update);
 
 		    $response = array();
