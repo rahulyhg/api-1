@@ -4,13 +4,13 @@ require 'Slim/Slim.php';
 require 'errorcodes.php';
 
 $mm = date('m'); $yy = date('Y');
-$_SESSION['DB_PREFIX'] = "lksa";
-$_SESSION['DB_PREFIX_CURR'] = "lksa".($mm < 4 ? ($yy - 1)."".substr($yy,-2) : $yy."".(substr($yy,-2)+1));
-$_SESSION['DB_PREFIX_LAST'] = "lksa".($mm < 4 ? ($yy - 2)."".substr(($yy-1),-2) : ($yy-1)."".(substr(($yy-1),-2)+1));
-$_SESSION['USER_DB_PREFIX'] = "ob_sa";
+$_SESSION['DB_PREFIX'] = "dev_lksa";
+$_SESSION['DB_PREFIX_CURR'] = "dev_lksa".($mm < 4 ? ($yy - 1)."".substr($yy,-2) : $yy."".(substr($yy,-2)+1));
+$_SESSION['DB_PREFIX_LAST'] = "dev_lksa".($mm < 4 ? ($yy - 2)."".substr(($yy-1),-2) : ($yy-1)."".(substr(($yy-1),-2)+1));
+$_SESSION['USER_DB_PREFIX'] = "dev_ob_sa";
 
 $_SESSION['ROWS_IN_TABLE'] = 30;
-$_SESSION['API_ROW_LIMIT'] = 50;
+$_SESSION['API_ROW_LIMIT'] = 15;
 $_SESSION['MOBILE_ROWS_IN_TABLE'] = 15;
 
 $_SESSION['PAY_MODE'] = array(0=>'Unknown', 1=> 'Cash', 2=> 'PDC',3=> 'Other', 4=> '4', 5=>'5', 6=> 'ECS',7=> '7');
@@ -76,6 +76,13 @@ function executeInsert($q){
 		$value = mysqli_insert_id($conn);
         mysqli_close($conn);
         return $value;
+}
+
+function executeQuery($q){
+        $conn = connect();
+        $result = mysqli_query($conn, $q);
+		mysqli_close($conn);
+        return $result;
 }
 
 function startsWith($haystack, $needle){return $needle === "" || strpos($haystack, $needle) === 0;}

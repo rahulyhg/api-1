@@ -999,8 +999,8 @@ function smsresponse($id){
   //print_a($req);
     $str =  json_encode($req);
   //echo $str;
-    $file = "sms-$id.txt";
-    file_put_contents($file, $str, FILE_APPEND);
+  //$file = "sms-$id.txt";
+  //file_put_contents($file, $str, FILE_APPEND);
 
         if(isset($req["\0*\0".'get']['unique_id'])){
 	    	$unique_id = $req["\0*\0".'get']['unique_id'];
@@ -1115,16 +1115,18 @@ function deal_logs($dealid){
 	$dbPrefix = $_SESSION['DB_PREFIX'];
     $dbPrefix_curr = $_SESSION['DB_PREFIX_CURR'];
     $dbPrefix_last = $_SESSION['DB_PREFIX_LAST'];
+    $userdbPrefix = $_SESSION['USER_DB_PREFIX'];
+
 
     $sql_logs = "SELECT t.dt, t.type,u.realname AS caller_name, b.brkrnm AS sra_name, date_format(t.followupdt,'%d-%b') as followup_dt, t.remark FROM(
-	        	SELECT dealid, followupdate AS dt,'FIRSTCALL' AS `type`,  NULL AS callerid, Remark AS remark, NULL AS followupdt, NULL AS sraid FROM $dbPrefix_curr.tbxdealduedatefollowuplog WHERE dealid = $dealid
+	        	SELECT dealid, followupdate AS dt,'FIRSTCALL' AS `type`,  NULL AS callerid, Remark AS remark, NULL AS followupdt, NULL AS sraid FROM ".$dbPrefix_curr.".tbxdealduedatefollowuplog WHERE dealid = $dealid
 	       		UNION
-	        	SELECT dealid, followupdate AS dt, 'CALLER' AS `type`, webuserid AS callerid, FollowupRemark AS remark, NxtFollowupDate AS followupdt, NULL AS sraid FROM $dbPrefix_curr.tbxdealfollowuplog WHERE dealid = $dealid
+	        	SELECT dealid, followupdate AS dt, 'CALLER' AS `type`, webuserid AS callerid, FollowupRemark AS remark, NxtFollowupDate AS followupdt, NULL AS sraid FROM ".$dbPrefix_curr.".tbxdealfollowuplog WHERE dealid = $dealid
 				UNION
-				SELECT dealid, followupdate AS dt, 'INTERNAL' AS `type`,  webuserid AS callerid, FollowupRemark AS remark, NULL AS followupdt, sraid FROM $dbPrefix_curr.tbxsrafollowuplog WHERE dealid = $dealid
+				SELECT dealid, followupdate AS dt, 'INTERNAL' AS `type`,  webuserid AS callerid, FollowupRemark AS remark, NULL AS followupdt, sraid FROM ".$dbPrefix_curr.".tbxsrafollowuplog WHERE dealid = $dealid
 				) t
-				LEFT JOIN ob_sa.tbmuser u ON t.callerid = u.userid
-				LEFT JOIN $dbPrefix.tbmbroker b ON t.sraid = b.brkrid AND b.brkrtyp = 2
+				LEFT JOIN ".$userdbPrefix.".tbmuser u ON t.callerid = u.userid
+				LEFT JOIN ".$dbPrefix.".tbmbroker b ON t.sraid = b.brkrid AND b.brkrtyp = 2
 				ORDER BY dt DESC";
 
   	$logs = executeSelect($sql_logs);
@@ -1148,7 +1150,7 @@ function deal_ledger($dealid,$hpdt){
 	//TO-DO: Loop exist criteria is wrong for months of JAN, FEB, MARCH. Check it.
 
 	for ($d = $startyy; $d <= date('Y'); $d++){
-		$db = "lksa".$d."".str_pad($d+1-2000, 2, '0', STR_PAD_LEFT);
+		$db = "$dbPrefix".$d."".str_pad($d+1-2000, 2, '0', STR_PAD_LEFT);
 		$q2 .="
 			SELECT t1.sraid, b.brkrnm as sranm, t1.rcptdt as Date, round(sum(t2.rcptamt)) as Received, t1.rcptid, t1.rcptpaymode as mode, t1.CBFlg, t1.CBCCLFlg, t1.CCLflg, DATE_FORMAT(t1.cbdt, '%d-%b-%y') as cbdt, DATE_FORMAT(t1.ccldt, '%d-%b-%y') as  ccldt, t1.rmrk as Remarks, t1.cbrsn,
 			sum(case when dctyp = 101 then round(t2.rcptamt) ELSE 0 END) as EMI,
@@ -1158,7 +1160,7 @@ function deal_ledger($dealid,$hpdt){
 			, v.reconind
 			FROM ".$db.".tbxdealrcpt t1 join ".$db.".tbxdealrcptdtl t2 on t1.rcptid = t2.rcptid and t1.dealid = $dealid
 			LEFT JOIN ".$db.".tbxacvoucher v on v.xrefid = t1.rcptid and v.rcptno = t1.rcptno and xreftyp = 1100 and acvchtyp = 4 and acxnsrno = 0
-			left join lksa.tbmbroker b on t1.sraid = b.brkrid group by t1.rcptid
+			left join ".$dbPrefix.".tbmbroker b on t1.sraid = b.brkrid group by t1.rcptid
 			UNION";
 	}
 
