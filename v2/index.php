@@ -149,7 +149,7 @@ function getStaticData($empid){
 	//check_session();
 	//$empid = $_SESSION['userid'];
 
-    $sql = "select sql_calc_found_rows distinct(sb.bankid),sb.banknm from ".$dbPrefix.".tbmsourcebank sb join ".$dbPrefix.".tbaposbankbranch pb on sb.bankid = pb.bankid where pb.empid = $empid";
+    $sql = "select sql_calc_found_rows distinct(sb.bankid),sb.banknm,sb.bankshnm from ".$dbPrefix.".tbmsourcebank sb join ".$dbPrefix.".tbaposbankbranch pb on sb.bankid = pb.bankid where pb.empid = $empid";
 	$bank = executeSelect($sql);
 
 	foreach($bank['result'] as $i=> $static){
