@@ -32,6 +32,7 @@ $app->get('/notifications/:empid/:lastid', 'getNotifications');  //23
 $app->get('/updateddeals/:empid/:lasttimestamp', 'getUpdatedDeals');  //24
 $app->post('/postdiagnosticlogs', 'PostDiagnosticLogs');  //25 (Pending)
 $app->post('/postescalation', 'PostEscalation');  //26 (Pending)
+
 $app->get('/smsresponse/:id', 'smsresponse');
 $app->get('/sendsms/:mobileno/:msg/:dealno/:msgtag/:sentto', 'sendsms');
 
@@ -569,14 +570,14 @@ function getDues($dealid, $foreclosure){
 		$foreclosure_amt = foreclosure($dealid);
 		$index=count($dues['result']);
 		$dues['result'][$index]= array();
-		$dues['result'][$index]["Type"]='101';
-		$dues['result'][$index]["amount"]=$od+$foreclosure_amt;
+		$dues['result'][$index]["type"]='101';
+		$dues['result'][$index]["amount"]=strval($od+$foreclosure_amt);
 	}
 	else{
 		$index=count($dues['result']);
 		$dues['result'][$index]= array();
-		$dues['result'][$index]["Type"]='101';
-		$dues['result'][$index]["amount"]=$od;
+		$dues['result'][$index]["type"]='101';
+		$dues['result'][$index]["amount"]=strval($od);
 	}
 
 	$response = array();
