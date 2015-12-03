@@ -150,12 +150,12 @@ function getStaticData($empid){
 	//check_session();
 	//$empid = $_SESSION['userid'];
 
-    $sql = "select sql_calc_found_rows distinct(sb.bankid),sb.banknm,sb.bankshnm from ".$dbPrefix.".tbmsourcebank sb join ".$dbPrefix.".tbaposbankbranch pb on sb.bankid = pb.bankid where pb.empid = $empid";
+    $sql = "select sql_calc_found_rows distinct(sb.bankid),sb.banknm,sb.bankshnm,sba.AcId as bankacid from ".$dbPrefix.".tbmsourcebank sb join ".$dbPrefix.".tbaposbankbranch pb on sb.bankid = pb.bankid left join ".$dbPrefix.".tbasrcbnkaccnt sba on sb.bankid = sba.bankid and sba.actyp = '3002' where pb.empid = $empid";
 	$bank = executeSelect($sql);
 
 	foreach($bank['result'] as $i=> $static){
 		$bankid = $static['bankid'];
-		$sql_branchnm = "select sql_calc_found_rows bb.BankBrnchId as branchid,bb.BankBrnchNm as branch,bb.city from ".$dbPrefix.".tbmsourcebankbrnch bb join ".$dbPrefix.".tbaposbankbranch pb on bb.BankBrnchId = pb.branchid where bb.bankid=$bankid and pb.empid = $empid";
+		$sql_branchnm = "select sql_calc_found_rows bb.BankBrnchId as branchid,bb.BankBrnchCd as branchcode,bb.BankBrnchNm as branch,bb.city from ".$dbPrefix.".tbmsourcebankbrnch bb join ".$dbPrefix.".tbaposbankbranch pb on bb.BankBrnchId = pb.branchid where bb.bankid=$bankid and pb.empid = $empid";
 		$branchnm = executeSelect($sql_branchnm);
 		$bank['result'][$i]['branchname'] = $branchnm;
  	}
