@@ -40,6 +40,8 @@ $app->post('/customerregister', 'customerregister');  //Consumer App 01
 $app->post('/customerlogin', 'customerlogin');  //Consumer App 02
 $app->get('/customerdealdetails/:dealid', 'getCustomerDealDetails');  //Consumer App 03
 
+$app->get('/accountbalance/:acid/:acxndt', 'getAcBalance');
+
 $app->run();
 
 //TO-DO : Replace e.oldid with empid.
@@ -1453,5 +1455,64 @@ function getCustomerDealDetails($dealid) {
 	}
 	$response["dealdetails"] = $dealdetails;
 	echo json_encode($response);
+}
+
+
+function getAcBalance($acid,$acxndt){
+	$dbPrefix_curr = $_SESSION['DB_PREFIX_CURR'];
+
+    $sql_select = "SELECT AcId,AcOpBalTyp,AcOpBal,AcTotDR,AcTotCR FROM ".$dbPrefix_curr.".tbxacbalance WHERE AcId = '$acid'";
+	$acbalance = executeSelect($sql_select);
+
+	$response = array();
+	if($acbalance['row_count']>0){
+		$AcOpBalTyp = $acbalance['result'][0]['AcOpBalTyp'];
+		$AcOpBal = $acbalance['result'][0]['AcOpBal'];
+		$AcTotDR = $acbalance['result'][0]['AcTotDR'];
+		$AcTotCR = $acbalance['result'][0]['AcTotCR'];
+		$TotCR = 0;
+		$TotDR = 0;
+
+		if( $AcOpBalTyp == 1){
+      	 	$TotDR = $AcOpBal + $AcTotDR;
+           	$TotCR = $AcTotCR;
+        }
+       	else{
+       	    $TotCR = AcOpBal + $AcTotCR;
+   		  	$TotDR = $AcTotDR;
+     	}
+
+    	if( $TotCR > $TotDR ){
+           	$AcOpBal = $TotCR - $TotDR;
+           	if($AcOpBal > 0){
+             	$AcOpBalTyp = 2;
+           	}
+        }
+        else{
+		   	$AcOpBal = $TotDR - $TotCR;
+			if ($AcOpBal > 0){
+		  		$AcOpBalTyp = 1;
+		  	}
+         }
+
+		$response["success"] = 1;
+		$response["acid"] = $acid;
+		$response["acxndate"] = $acxndt;
+		$response["acbalance"] = $AcOpBal;
+		$response["actype"] = $AcOpBalTyp;
+
+
+	}
+	else{
+			$response = error_code(1046);
+			echo json_encode($response);
+			return;
+		}
+
+	echo json_encode($response);
+
+
+
+
 }
 ?>
