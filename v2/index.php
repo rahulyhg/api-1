@@ -1461,58 +1461,70 @@ function getCustomerDealDetails($dealid) {
 function getAcBalance($acid,$acxndt){
 	$dbPrefix_curr = $_SESSION['DB_PREFIX_CURR'];
 
-    $sql_select = "SELECT AcId,AcOpBalTyp,AcOpBal,AcTotDR,AcTotCR FROM ".$dbPrefix_curr.".tbxacbalance WHERE AcId = '$acid'";
-	$acbalance = executeSelect($sql_select);
-
 	$response = array();
-	if($acbalance['row_count']>0){
-		$AcOpBalTyp = $acbalance['result'][0]['AcOpBalTyp'];
-		$AcOpBal = $acbalance['result'][0]['AcOpBal'];
-		$AcTotDR = $acbalance['result'][0]['AcTotDR'];
-		$AcTotCR = $acbalance['result'][0]['AcTotCR'];
-		$TotCR = 0;
+	$AcTotCR_AcxnAmt = 0;
+	$AcTotDR_AcxnAmt = 0;
+
+	$sql_selectTotCR = "SELECT AcId, SUM(AcxnAmt) AS TotCr FROM ".$dbPrefix_curr.".tbxAcVoucher WHERE AcId = '$acid' AND AcxnTyp = 2 AND AcxnDt <='$acxndt' GROUP BY AcId";
+	$totCR = executeSelect($sql_selectTotCR);
+	if($totCR['row_count']>0){
+		$AcTotCR_AcxnAmt = $totCR['result'][0]['TotCr'];
+	}
+
+	$sql_selectTotDR = "SELECT AcId, SUM(AcxnAmt) AS TotDr FROM ".$dbPrefix_curr.".tbxAcVoucher WHERE AcId = '$acid' AND AcxnTyp = 1 AND AcxnDt <='$acxndt' GROUP BY AcId";
+	$totDR = executeSelect($sql_selectTotDR);
+	if($totDR['row_count']>0){
+	 	$AcTotDR_AcxnAmt = $totDR['result'][0]['TotDr'];
+	}
+
+	$sql_selectOpBal = "SELECT AcOpBalTyp,AcOpBal FROM ".$dbPrefix_curr.".tbxacbalance WHERE AcId = '$acid'";
+	$opBal = executeSelect($sql_selectOpBal);
+	if($opBal['row_count']>0){
+
+		$AcOpBal_AcxnDt = $acxndt;
+	   	$AcOpBal_AcId = $acid;
+		$AcOpBal_AcxnTyp = $opBal['result'][0]['AcOpBalTyp'];
+       	$AcOpBal_AcxnAmt = $opBal['result'][0]['AcOpBal'];
 		$TotDR = 0;
+		$TotCR = 0;
 
-		if( $AcOpBalTyp == 1){
-      	 	$TotDR = $AcOpBal + $AcTotDR;
-           	$TotCR = $AcTotCR;
-        }
-       	else{
-       	    $TotCR = AcOpBal + $AcTotCR;
-   		  	$TotDR = $AcTotDR;
-     	}
 
-    	if( $TotCR > $TotDR ){
-           	$AcOpBal = $TotCR - $TotDR;
-           	if($AcOpBal > 0){
-             	$AcOpBalTyp = 2;
-           	}
-        }
-        else{
-		   	$AcOpBal = $TotDR - $TotCR;
-			if ($AcOpBal > 0){
-		  		$AcOpBalTyp = 1;
-		  	}
-         }
+		if( $AcOpBal_AcxnTyp == 1){
+			$TotDR = $AcOpBal_AcxnAmt + $AcTotDR_AcxnAmt;
+			$TotCR = $AcTotCR_AcxnAmt;
+		}
+		else{
+			$TotCR = $AcOpBal_AcxnAmt + $AcTotCR_AcxnAmt;
+			$TotDR = $AcTotDR_AcxnAmt;
+	   	}
 
-		$response["success"] = 1;
+	 	if( $TotCR > $TotDR ){
+			$AcOpBal_AcxnAmt = $TotCR - $TotDR;
+		    if( $AcOpBal_AcxnAmt > 0){
+		       	$AcOpBal_AcxnTyp = 2;
+		    }
+		}
+		else{
+		  	$AcOpBal_AcxnAmt = $TotDR - $TotCR;
+		   	if ($AcOpBal_AcxnAmt > 0){
+		   		$AcOpBal_AcxnTyp = 1;
+		   	}
+	     }
+
+	  	$response["success"] = 1;
 		$response["acid"] = $acid;
 		$response["acxndate"] = $acxndt;
-		$response["acbalance"] = $AcOpBal;
-		$response["actype"] = $AcOpBalTyp;
-
+		$response["acbalance"] = $AcOpBal_AcxnAmt;
+		$response["acxntype"] = $AcOpBal_AcxnTyp;
 
 	}
 	else{
-			$response = error_code(1046);
-			echo json_encode($response);
-			return;
-		}
+		$response = error_code(1046);
+		echo json_encode($response);
+		return;
+	}
 
 	echo json_encode($response);
-
-
-
 
 }
 ?>
