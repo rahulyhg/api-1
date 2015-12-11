@@ -46,5 +46,7 @@ $error_codes = array(
 1043 => "Failed to post Bank Deposit",
 1044 => "No Deposit History Found",
 1045 => "No Not Deposited Receipt Found",
-1046 => "No Account Balance Found");
+1046 => "No Account Balance Found",
+1047 => "Failed to send OTP",
+1048 => "Failed to varify mobile number");
 ?>

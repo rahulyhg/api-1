@@ -327,8 +327,9 @@ function getNotDepositedReceipts($empid){
 	$pos = substr($posid, 0, 2);
 	if($pos === 'M-'){
 
-		$sql = "SELECT pj.RcptNo,rj.RcptNo,rj.JrnlNo,rj.TranNo,rj.RcptDate,rj.TranTime,rj.RcptMode FROM ".$dbPrefix_curr.".tbxrcptjrnl rj LEFT JOIN (SELECT pj.JrnlNo, pjd.RcptNo, pj.POSId  FROM ".$dbPrefix_curr.".tbxdealpmntjrnl pj
-		JOIN ".$dbPrefix_curr.".tbxdealpmntjrnldtl AS pjd ON pj.JrnlNo = pjd.JrnlNo WHERE POSID = '$posid') AS pj ON rj.tranNo=pj.RcptNo WHERE rj.POSID = '$posid' HAVING pj.RcptNo IS NULL";
+		$sql = "SELECT pj.RcptNo,rj.RcptNo,rj.JrnlNo,rj.TranNo,rj.RcptDate,rj.TranTime,rj.RcptMode,rj.DealNo,d.DealNm FROM ".$dbPrefix_curr.".tbxrcptjrnl rj LEFT JOIN (SELECT pj.JrnlNo, pjd.RcptNo, pj.POSId  FROM ".$dbPrefix_curr.".tbxdealpmntjrnl pj
+		JOIN ".$dbPrefix_curr.".tbxdealpmntjrnldtl AS pjd ON pj.JrnlNo = pjd.JrnlNo WHERE POSID = '$posid') AS pj ON rj.tranNo=pj.RcptNo
+		LEFT JOIN ".$dbPrefix.".tbmdeal d ON rj.dealno = d.dealno WHERE rj.POSID = '$posid' HAVING pj.RcptNo IS NULL";
 		$notdepositreceipt = executeSelect($sql);
 
 		foreach($notdepositreceipt['result'] as $i=> $jrnl){
