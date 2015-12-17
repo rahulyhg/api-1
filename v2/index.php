@@ -19,7 +19,7 @@ $app->get('/searchdeals/:empid/:query/:page', 'searchDeals');  //10
 $app->get('/deal/:dealid', 'getDeal');  //11
 $app->post('/postlogs', 'postLogs');  //12
 $app->get('/dues/:dealid/:foreclosure', 'getDues');  //13
-$app->post('/postdues', 'postDues');  //14 (Pending)
+$app->post('/postdues', 'postDues');  //14
 $app->get('/deallogs/:dealid', 'getDealLogs');  //15
 $app->get('/dealledgers/:dealid', 'getDealLedger');  //16
 $app->post('/postmobileno', 'postMobileNo');  //17 (Pending)
@@ -41,6 +41,7 @@ $app->post('/customerlogin', 'customerlogin');  //Consumer App 02
 $app->get('/customerdealdetails/:dealid', 'getCustomerDealDetails');  //Consumer App 03
 
 $app->get('/accountbalance/:acid/:acxndt', 'getAcBalance');
+$app->get('/unreconciledepositentry/:acid', 'getUnreconcileDepositEntry');
 
 $app->run();
 
@@ -603,7 +604,7 @@ function postDues(){
 	$dbPrefix_curr = $_SESSION['DB_PREFIX_CURR'];
 	$request = Slim::getInstance()->request();
 
-	$jrnlno = 'J-0000';
+	//$jrnlno = 'J-0000';
 	$empid = $request->params('empid');
 	$tranno = $request->params('tranno');
 	$dealno = $request->params('dealno');
@@ -616,8 +617,24 @@ function postDues(){
 	$trantime = $request->params('trantime');
 	$rcptmode = $request->params('rcptmode');
 	$totamt = $request->params('totamt');
-
 	$dctyp_amt = $request->params('dctyp_amt');
+
+	$sql_locktabl = "LOCK TABLES ".$dbPrefix_curr.".`tbxcuryymmno` WRITE";
+	$lockid = executeQuery($sql_locktabl);
+
+	$sql_jrnlno = "SELECT CONCAT(SUBSTRING(yy, 3),mm,curid) AS jrno FROM ".$dbPrefix_curr.".`tbxcuryymmno` WHERE fieldnm = 'DEALRCPT' AND mm =MONTH(NOW()) AND yy = YEAR(NOW())";
+	$jrno = executeSingleSelect($sql_jrnlno);
+
+	if (isset($jrno)){
+		$sql_updateCurId = "update ".$dbPrefix_curr.".`tbxcuryymmno` set curid = curid+1";
+		$affectedrows_CurId = executeUpdate($sql_updateCurId);
+	}
+	$sql_unlocktables = "UNLOCK TABLES";
+	$unlockid = executeQuery($sql_unlocktables);
+	if($unlockid >0){
+		$jrnlno = 'J1-'.$jrno;
+	}
+
 
 	$sql = "INSERT INTO ".$dbPrefix_curr.".tbxrcptjrnl (JrnlNo,TranNo,EmpId,DealNo,RcptDate,TotAmt,PayMode,ChqNo,ChqDate,BankName,Place,TranTime,RcptMode) VALUES ('$jrnlno', '$tranno', '$empid', '$dealno', '$rcptdt', '$totamt', '$paymode', '$chqno', '$chqdt', '$banknm', '$place', '$trantime', '$rcptmode')";
 	$lastid = executeInsert($sql);
@@ -1528,4 +1545,26 @@ function getAcBalance($acid,$acxndt){
 	echo json_encode($response);
 
 }
+
+
+function getUnreconcileDepositEntry($acid){
+	$dbPrefix_curr = $_SESSION['DB_PREFIX_CURR'];
+	$dbPrefix = $_SESSION['DB_PREFIX'];
+
+	$sql_select = "SELECT b.AcxnDt, sb.BankShNm, b.AcxnAmt, b.ReconInd  FROM ".$dbPrefix_curr.".`tbxacvoucher` AS a JOIN  ".$dbPrefix_curr.".`tbxacvoucher` AS b ON a.AcxnId=b.AcxnId JOIN ".$dbPrefix.".`tbasrcbnkaccnt` sa ON b.AcId=sa.AcId JOIN ".$dbPrefix.".`tbmsourcebank` sb ON sa.BankId=sb.BankId WHERE a.AcId = 100566892 AND b.AcVchTyp=2 AND b.AcId !='$acid' AND b.ReconInd != 3;";
+	$unreconcileentry = executeSelect($sql_select);
+
+	$response = array();
+		if($unreconcileentry['row_count']>0){
+			$response["success"] = 1;
+		}
+		else{
+			$response = error_code(1049);
+			echo json_encode($response);
+			return;
+		}
+	$response["unreconciledepositentry"] = $unreconcileentry;
+	echo json_encode($response);
+}
+
 ?>

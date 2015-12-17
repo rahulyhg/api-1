@@ -40,7 +40,7 @@ $error_codes = array(
 1037 => "No Proposals Found",
 1038 => "Salesman not registered",
 1039 => "Failed to create new Proposal",
-1040 => "Failed to update Proposal",
+1040 => "Failed to save Proposal or already saved",
 1041 => "Address not found",
 1042 => "Failed to post Dues",
 1043 => "Failed to post Bank Deposit",
@@ -48,5 +48,6 @@ $error_codes = array(
 1045 => "No Not Deposited Receipt Found",
 1046 => "No Account Balance Found",
 1047 => "Failed to send OTP",
-1048 => "Failed to varify mobile number");
+1048 => "Failed to varify mobile number",
+1049 => "No Unreconcile Deposit Entry Found");
 ?>
