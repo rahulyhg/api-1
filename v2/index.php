@@ -1551,7 +1551,7 @@ function getUnreconcileDepositEntry($acid){
 	$dbPrefix_curr = $_SESSION['DB_PREFIX_CURR'];
 	$dbPrefix = $_SESSION['DB_PREFIX'];
 
-	$sql_select = "SELECT b.AcxnDt, sb.BankShNm, b.AcxnAmt, b.ReconInd  FROM ".$dbPrefix_curr.".`tbxacvoucher` AS a JOIN  ".$dbPrefix_curr.".`tbxacvoucher` AS b ON a.AcxnId=b.AcxnId JOIN ".$dbPrefix.".`tbasrcbnkaccnt` sa ON b.AcId=sa.AcId JOIN ".$dbPrefix.".`tbmsourcebank` sb ON sa.BankId=sb.BankId WHERE a.AcId = 100566892 AND b.AcVchTyp=2 AND b.AcId !='$acid' AND b.ReconInd != 3;";
+	$sql_select = "SELECT b.AcxnDt, sb.BankShNm, b.AcxnAmt, b.ReconInd  FROM ".$dbPrefix_curr.".`tbxacvoucher` AS a JOIN  ".$dbPrefix_curr.".`tbxacvoucher` AS b ON a.AcxnId=b.AcxnId JOIN ".$dbPrefix.".`tbasrcbnkaccnt` sa ON b.AcId=sa.AcId JOIN ".$dbPrefix.".`tbmsourcebank` sb ON sa.BankId=sb.BankId WHERE a.AcId = '$acid' AND b.AcVchTyp=4 AND b.AcId !='$acid' AND b.ReconInd != 3;";
 	$unreconcileentry = executeSelect($sql_select);
 
 	$response = array();
