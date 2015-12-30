@@ -43,6 +43,14 @@ $app->get('/customerdealdetails/:dealid', 'getCustomerDealDetails');  //Consumer
 $app->get('/accountbalance/:acid/:acxndt', 'getAcBalance');
 $app->get('/unreconciledepositentry/:acid', 'getUnreconcileDepositEntry');
 
+$app->get('/proposaldata/:imei', 'getProposaldata');
+$app->get('/newproposal/:salesmanid/:brkrid/:bankid/:prslname', 'postNewProposal');
+$app->post('/updateproposal', 'updateProposal');
+$app->get('/address/:pincode', 'getAddress');
+$app->post('/uploaddocuments', 'uploadDocuments');
+$app->get('/sendotp/:salesmanid/:mobile', 'sendOtp');
+$app->get('/verifyotp/:mobile/:otp', 'verifyOtp');
+
 $app->run();
 
 //TO-DO : Replace e.oldid with empid.
@@ -158,7 +166,7 @@ function getStaticData($empid){
 
 	foreach($bank['result'] as $i=> $static){
 		$bankid = $static['bankid'];
-		$sql_branchnm = "select sql_calc_found_rows bb.BankBrnchId as branchid,bb.BankBrnchCd as branchcode,bb.BankBrnchNm as branch,bb.city from ".$dbPrefix.".tbmsourcebankbrnch bb join ".$dbPrefix.".tbaposbankbranch pb on bb.BankBrnchId = pb.branchid where bb.bankid=$bankid and pb.empid = $empid";
+		$sql_branchnm = "select sql_calc_found_rows distinct(bb.BankBrnchId) as branchid,bb.BankBrnchCd as branchcode,bb.BankBrnchNm as branch,bb.city from ".$dbPrefix.".tbmsourcebankbrnch bb join ".$dbPrefix.".tbaposbankbranch pb on bb.BankBrnchId = pb.branchid where bb.bankid=$bankid and pb.empid = $empid";
 		$branchnm = executeSelect($sql_branchnm);
 		$bank['result'][$i]['branchname'] = $branchnm;
  	}
@@ -619,20 +627,37 @@ function postDues(){
 	$totamt = $request->params('totamt');
 	$dctyp_amt = $request->params('dctyp_amt');
 
-	$sql_locktabl = "LOCK TABLES ".$dbPrefix_curr.".`tbxcuryymmno` WRITE";
-	$lockid = executeQuery($sql_locktabl);
+	$sql_locktable = "LOCK TABLES ".$dbPrefix_curr.".`tbxcuryymmno` WRITE";
+	$lockid = executeQuery($sql_locktable);
 
-	$sql_jrnlno = "SELECT CONCAT(SUBSTRING(yy, 3),mm,curid) AS jrno FROM ".$dbPrefix_curr.".`tbxcuryymmno` WHERE fieldnm = 'DEALRCPT' AND mm =MONTH(NOW()) AND yy = YEAR(NOW())";
+	$sql_jrnlno = "SELECT CONCAT(jrnlind,'-',SUBSTRING(yy, 3),mm,curid) AS jrno FROM ".$dbPrefix_curr.".`tbxcuryymmno` WHERE fieldnm = 'DEALRCPT' AND mm = MONTH(NOW()) AND yy = YEAR(NOW())";
 	$jrno = executeSingleSelect($sql_jrnlno);
 
 	if (isset($jrno)){
 		$sql_updateCurId = "update ".$dbPrefix_curr.".`tbxcuryymmno` set curid = curid+1";
 		$affectedrows_CurId = executeUpdate($sql_updateCurId);
 	}
+	else{
+		$sql_insertcurno = "INSERT INTO ".$dbPrefix_curr.".`tbxcuryymmno`(`FieldNm`,`YY`,`MM`,`CurId`,`JrnlInd`) VALUES ('DEALRCPT',YEAR(NOW()),MONTH(NOW()),'1','J1')";
+		$lastid_insertcurno = executeInsertQuery($sql_insertcurno);
+
+		if($lastid_insertcurno>0){
+			$sql_jrnlno = "SELECT CONCAT(jrnlind,'-',SUBSTRING(yy, 3),mm,curid) AS jrno FROM ".$dbPrefix_curr.".`tbxcuryymmno` WHERE fieldnm = 'DEALRCPT' AND mm = MONTH(NOW()) AND yy = YEAR(NOW())";
+			$jrno = executeSingleSelect($sql_jrnlno);
+
+			if (isset($jrno)){
+				$sql_updateCurId = "update ".$dbPrefix_curr.".`tbxcuryymmno` set curid = curid+1";
+				$affectedrows_CurId = executeUpdate($sql_updateCurId);
+			}
+		}
+	}
+
 	$sql_unlocktables = "UNLOCK TABLES";
 	$unlockid = executeQuery($sql_unlocktables);
 	if($unlockid >0){
-		$jrnlno = 'J1-'.$jrno;
+		$jrnlno = $jrno;
+
+
 	}
 
 
@@ -780,19 +805,51 @@ function postBankDeposit(){
 	$dbPrefix_curr = $_SESSION['DB_PREFIX_CURR'];
 	$request = Slim::getInstance()->request();
 
-	$jrnlno = 'J-0000';
+	//$jrnlno = 'J-0000';
 	$empid = $request->params('empid');
 	$tranno = $request->params('tranno');
 	$trandate = $request->params('trandate');
 	$trantime = $request->params('trantime');
-
 	$bankid = $request->params('bankid');
 	$bankacid = $request->params('bankacid');
 	$branchcode = $request->params('branchcode');
 	$branchid = $request->params('branchid');
 	$amount = $request->params('amount');
-
 	$dealno_rcptno_amt = $request->params('dealno_rcptno_amt');
+
+	$sql_locktable = "LOCK TABLES ".$dbPrefix_curr.".`tbxcuryymmno` WRITE";
+		$lockid = executeQuery($sql_locktable);
+
+		$sql_jrnlno = "SELECT CONCAT(jrnlind,'-',SUBSTRING(yy, 3),mm,curid) AS jrno FROM ".$dbPrefix_curr.".`tbxcuryymmno` WHERE fieldnm = 'DEALPMNT' AND mm = MONTH(NOW()) AND yy = YEAR(NOW())";
+		$jrno = executeSingleSelect($sql_jrnlno);
+
+		if (isset($jrno)){
+			$sql_updateCurId = "update ".$dbPrefix_curr.".`tbxcuryymmno` set curid = curid+1";
+			$affectedrows_CurId = executeUpdate($sql_updateCurId);
+		}
+
+		else{
+			$sql_insertcurno = "INSERT INTO ".$dbPrefix_curr.".`tbxcuryymmno`(`FieldNm`,`YY`,`MM`,`CurId`,`JrnlInd`) VALUES ('DEALPMNT',YEAR(NOW()),MONTH(NOW()),'1',P1')";
+			$lastid_insertcurno = executeInsertQuery($sql_insertcurno);
+
+			if($lastid_insertcurno>0){
+				$sql_jrnlno = "SELECT CONCAT(jrnlind,'-',SUBSTRING(yy, 3),mm,curid) AS jrno FROM ".$dbPrefix_curr.".`tbxcuryymmno` WHERE fieldnm = 'DEALPMNT' AND mm = MONTH(NOW()) AND yy = YEAR(NOW())";
+				$jrno = executeSingleSelect($sql_jrnlno);
+
+				if (isset($jrno)){
+					$sql_updateCurId = "update ".$dbPrefix_curr.".`tbxcuryymmno` set curid = curid+1";
+					$affectedrows_CurId = executeUpdate($sql_updateCurId);
+				}
+			}
+		}
+
+
+		$sql_unlocktables = "UNLOCK TABLES";
+		$unlockid = executeQuery($sql_unlocktables);
+		if($unlockid >0){
+			$jrnlno = $jrno;
+	}
+
 
 	$sql = "INSERT INTO ".$dbPrefix_curr.".tbxdealpmntjrnl (JrnlNo,TranNo,EmpId,TranDate,BankId,BankAcId,BranchId,BranchCode,Amount,TranTime,InsertUserId) VALUES ('$jrnlno', '$tranno', '$empid', '$trandate', '$bankid', '$bankacid', '$branchid', '$branchcode', '$amount', '$trantime', '$empid')";
 	$lastid = executeInsert($sql);
@@ -989,31 +1046,31 @@ function smsresponse($id){
   //$file = "sms-$id.txt";
   //file_put_contents($file, $str, FILE_APPEND);
 
-        if(isset($req["\0*\0".'get']['unique_id'])){
-	    	$unique_id = $req["\0*\0".'get']['unique_id'];
-	    	$reason = $req["\0*\0".'get']['reason'];
-	    	$to = $req["\0*\0".'get']['to'];
-	    	$from = $req["\0*\0".'get']['from'];
-	    	$time = $req["\0*\0".'get']['time'];
-        	$status = $req["\0*\0".'get']['status'];
+	if(isset($req["\0*\0".'get']['unique_id'])){
+		$unique_id = $req["\0*\0".'get']['unique_id'];
+		$reason = $req["\0*\0".'get']['reason'];
+		$to = $req["\0*\0".'get']['to'];
+		$from = $req["\0*\0".'get']['from'];
+		$time = $req["\0*\0".'get']['time'];
+		$status = $req["\0*\0".'get']['status'];
 
-        	$sql_update = "update ".$dbPrefix_curr.".tbxsms set status = (case when '$reason' = '000' then '3' else '4' end),reason = (case when '$reason' = '000' then 'Sent' when '$reason' = '001' then 'Invalid Number' when '$reason' = '002' then 'Absent Subscriber' when '$reason' = '003' then 'Memory Capacity Exceeded' when '$reason' = '004' then 'Mobile Equipment Error' when '$reason' = '005' then 'Network Error' when '$reason' = '006' then 'Barring' when '$reason' = '007' then 'Invalid Sender ID' when '$reason' = '008' then 'Dropped' when '$reason' = '009' then 'NDNC Failed' when '$reason' = 100 then 'Misc. Error' else '$reason' end),ReceivedDtTm = '$time' where pkid='$id'";
-		    $affectedrows = executeUpdate($sql_update);
+		$sql_update = "update ".$dbPrefix_curr.".tbxsms set status = (case when '$reason' = '000' then '3' else '4' end),reason = (case when '$reason' = '000' then 'Sent' when '$reason' = '001' then 'Invalid Number' when '$reason' = '002' then 'Absent Subscriber' when '$reason' = '003' then 'Memory Capacity Exceeded' when '$reason' = '004' then 'Mobile Equipment Error' when '$reason' = '005' then 'Network Error' when '$reason' = '006' then 'Barring' when '$reason' = '007' then 'Invalid Sender ID' when '$reason' = '008' then 'Dropped' when '$reason' = '009' then 'NDNC Failed' when '$reason' = 100 then 'Misc. Error' else '$reason' end),ReceivedDtTm = '$time' where pkid='$id'";
+		$affectedrows = executeUpdate($sql_update);
 
-		    $response = array();
-				if($affectedrows>0){
-					$response["success"] = 1;
-					$response["message"] = 'Successfully Updated';
-				}
-				else{
-					$response["success"] = 0;
-					$response["message"] = 'Failed to Update';
-				}
-				echo json_encode($response);
-		}
-	    else{
-	   		 echo json_encode("Data Not Found");
-    	}
+		$response = array();
+			if($affectedrows>0){
+				$response["success"] = 1;
+				$response["message"] = 'Successfully Updated';
+			}
+			else{
+				$response["success"] = 0;
+				$response["message"] = 'Failed to Update';
+			}
+			echo json_encode($response);
+	}
+	else{
+		 echo json_encode("Data Not Found");
+	}
 }
 
 
@@ -1021,7 +1078,7 @@ function sendsms($mobileno,$msg,$dealno,$msgtag,$sentto){
 	$dbPrefix_curr = $_SESSION['DB_PREFIX_CURR'];
 
 	$sql_insert = "insert into ".$dbPrefix_curr.".tbxsms(CmpnyCd,MsgDtTm,SentDtTm,Mobile,Message,MsgTag,DealNo,MsgPriority,status,SentTo)
-	values ('LKSA',now(),now(),'$mobileno','$msg','$msgtag','$dealno',0,1,'$sentto')";
+	values ('LKSA',now(),now(),'$mobileno','$msg','$msgtag','$dealno',1,1,'$sentto')";
 
 	$lastid = executeInsert($sql_insert);
 		if($lastid>0){
@@ -1553,20 +1610,647 @@ function getUnreconcileDepositEntry($acid){
 	$dbPrefix_curr = $_SESSION['DB_PREFIX_CURR'];
 	$dbPrefix = $_SESSION['DB_PREFIX'];
 
-	$sql_select = "SELECT b.AcxnDt, sb.BankShNm, b.AcxnAmt, b.ReconInd  FROM ".$dbPrefix_curr.".`tbxacvoucher` AS a JOIN  ".$dbPrefix_curr.".`tbxacvoucher` AS b ON a.AcxnId=b.AcxnId JOIN ".$dbPrefix.".`tbasrcbnkaccnt` sa ON b.AcId=sa.AcId JOIN ".$dbPrefix.".`tbmsourcebank` sb ON sa.BankId=sb.BankId WHERE a.AcId = '$acid' AND b.AcVchTyp=2 AND b.AcId !='$acid' AND b.ReconInd != 3;";
-	$unreconcileentry = executeSelect($sql_select);
+	$sql_select = "SELECT min(b.AcxnDt) as AcxnDt FROM ".$dbPrefix_curr.".`tbxacvoucher` AS a JOIN  ".$dbPrefix_curr.".`tbxacvoucher` AS b ON a.AcxnId=b.AcxnId  WHERE a.AcId = '$acid' AND b.AcVchTyp=3 AND b.AcId !='$acid' AND b.ReconInd != 3;";
+	$acxndt = executeSelect($sql_select);
+
+	if($acxndt['row_count']>0 && isset($acxndt['result'][0]['AcxnDt'])){
+
+		$acxndate = $acxndt['result'][0]['AcxnDt'];
+
+		$sql_unreconcileentry = "SELECT b.AcxnDt, b.bankShNm , bb.`BankBrnchNm` ,b.ReconInd , pj.Amount ,b.AcxnAmt  FROM ".$dbPrefix_curr.".`tbxacvoucher` AS a
+		JOIN ".$dbPrefix_curr.".`tbxacvoucher` AS b ON a.AcxnId=b.AcxnId
+		JOIN ".$dbPrefix.".`tbracvchtype` vt ON vt.AcVchTyp=b.AcVchTyp
+		LEFT JOIN ".$dbPrefix_curr.".`tbxdealpmntjrnl` pj ON pj.VchrNo = CONCAT(vt.AcVchTypShNm , '/' , b.AcVchNo)
+		JOIN ".$dbPrefix.".`tbasrcbnkaccnt` sa ON b.AcId=sa.AcId
+		JOIN ".$dbPrefix.".`tbmsourcebank` b ON sa.BankId=b.BankId
+		LEFT JOIN ".$dbPrefix.".`tbmsourcebankbrnch` bb ON bb.`BankBrnchId`= pj.BranchId
+		WHERE a.AcId = '$acid' AND b.AcVchTyp=3 AND b.AcId != '$acid' AND b.AcxnDt >= '$acxndate'";
+	}
+	else{
+		$sql_unreconcileentry = "SELECT b.AcxnDt, b.bankShNm , bb.`BankBrnchNm` ,b.ReconInd , pj.Amount ,b.AcxnAmt  FROM ".$dbPrefix_curr.".`tbxacvoucher` AS a
+		JOIN ".$dbPrefix_curr.".`tbxacvoucher` AS b ON a.AcxnId=b.AcxnId
+		JOIN ".$dbPrefix.".`tbracvchtype` vt ON vt.AcVchTyp=b.AcVchTyp
+		LEFT JOIN ".$dbPrefix_curr.".`tbxdealpmntjrnl` pj ON pj.VchrNo = CONCAT(vt.AcVchTypShNm , '/' , b.AcVchNo)
+		JOIN ".$dbPrefix.".`tbasrcbnkaccnt` sa ON b.AcId=sa.AcId
+		JOIN ".$dbPrefix.".`tbmsourcebank` b ON sa.BankId=b.BankId
+		LEFT JOIN ".$dbPrefix.".`tbmsourcebankbrnch` bb ON bb.`BankBrnchId`= pj.BranchId
+		WHERE a.AcId = '$acid' AND b.AcVchTyp=3 AND b.AcId != '$acid' limit 5";
+	}
+	$unreconcileentry = executeSelect($sql_unreconcileentry);
 
 	$response = array();
-		if($unreconcileentry['row_count']>0){
+	if($unreconcileentry['row_count']>0){
+		$response["success"] = 1;
+	}
+	else{
+		$response = error_code(1049);
+		echo json_encode($response);
+		return;
+	}
+	$response["unreconciledepositentry"] = $unreconcileentry;
+	echo json_encode($response);
+}
+
+
+
+
+function getProposaldata($imei){
+	$dbPrefix = $_SESSION['DB_PREFIX'];
+
+	$sql_salesmanid = "select e.salesmanid from ".$dbPrefix.".tbmemployee e join ".$dbPrefix.".tbmdevices d on d.empid = e.id where d.imei = $imei";
+	$salesmanid = executeSingleSelect($sql_salesmanid);
+
+	if(isset($salesmanid)){
+
+		$sql_proposal = "select p.ProposalId,p.ProposalNo,date_format(p.ProposalDt,'%d-%b-%Y') as ProposalDt,p.ProposalStatus as ProposalStatusId,(case when p.ProposalStatus=0 then 'ALL' when p.ProposalStatus=1 then 'DRAFT' when p.ProposalStatus=2 then 'APPROVAL' when p.ProposalStatus=3 then 'MORE INFO' when p.ProposalStatus=4 then 'APPROVED' when p.ProposalStatus=5 then 'REJECTED' when p.ProposalStatus=6 then 'DEAL CREATED' when p.ProposalStatus=7 then 'CANCELLED' when p.ProposalStatus=8 then 'DRAFT OR MORE INFO' when p.ProposalStatus=9 then 'DRAFT OR MORE INFO OR APPROVED' when p.ProposalStatus=10 then 'DRAFT AND PENDING FOR VERIFICATION' end) as ProposalStatus,p.ProposalNm,p.Gender,p.DOB,p.Mobile,otp1.VerifyStatus as MobileVerify,p.Mobile2,otp2.VerifyStatus as Mobile2Verify,p.Tel1,p.Pin,p.Add1,p.Add2,p.Area,p.City,p.Tahasil,p.State,p.Profession,round(p.AnnualIncome) as AnnualIncome,p.AadharCardNo,p.Language,p.RefNm1,p.RefMob1,otpre.VerifyStatus as ReferenceMobileVerify,p.BankId,round(p.CostOfVhcl) as CostOfVhcl,p.RoI,p.Period,p.BrkrId,br.BrkrNm,tcase(p.VehMake)as VehMake,tcase(p.VehModel) as VehModel,round(p.FinanceAmt) as FinanceAmt,pfd.ECSFlag,pfd.DocumentChrgFlag,pg.GrtrNm,pg.Add1 as GrtrAdd1,pg.Add2 as GrtrAdd2,pg.City as GrtrCity,pg.Mobile as GrtrMobile,otpgr.VerifyStatus as GuarantorMobileVerify,pg.AadharCardNo as GrtrAadharCardNo,350 as ECSAmount from ".$dbPrefix.".tbmproposal p
+		left join ".$dbPrefix.".tbmbroker br on p.BrkrId = br.BrkrId
+		left join ".$dbPrefix.".tbmprpslguarantors pg on p.ProposalId = pg.ProposalId
+		left join ".$dbPrefix.".tbaproposalfnncdtls pfd on p.ProposalId = pfd.ProposalId
+		left join ".$dbPrefix.".tbmotp otp1 on p.Mobile = otp1.mobile and otp1.VerifyStatus=1
+		left join ".$dbPrefix.".tbmotp otp2 on p.Mobile2 = otp2.mobile and otp2.VerifyStatus=1
+		left join ".$dbPrefix.".tbmotp otpgr on pg.Mobile = otpgr.mobile and otpgr.VerifyStatus=1
+		left join ".$dbPrefix.".tbmotp otpre on p.RefMob1 = otpre.mobile and otpre.VerifyStatus=1
+		where p.salesmanid = $salesmanid AND `ProposalDt`> DATE_SUB(NOW(), INTERVAL 4 MONTH)order by p.pkid desc";
+		$proposal = executeSelect($sql_proposal);
+
+		foreach($proposal['result'] as $i=> $doc){
+			$proposalid = $doc['ProposalId'];
+			$sql_docs = "SELECT docid,(case when docid = 1 then 'POST DATED CHEQUES' when docid = 2 then 'ADDRESS PROOF' when docid = 3 then 'CUSTOMER AADHAR CARD' when docid = 4 then 'GUARANTOR AADHAR CARD' when docid = 5 then 'INSURANCE' when docid = 6 then 'INCOME PROOF' when docid = 7 then 'ID PROOF' when docid = 8 then 'CUSTOMER SIGNATURE' when docid = 9 then 'AGREEMENT' when docid = 10 then 'INVOICE' when docid = 11 then 'DOWNPAYMENT RECEIPT' when docid = 12 then 'QUATATION' when docid = 13 then 'CUSTOMER PHOTO' when docid = 14 then 'GUARANTOR PHOTO' end) as docname,snote as doctype FROM ".$dbPrefix.".`tbmprpsldoc` WHERE proposalid='$proposalid' AND docsub='Y'";
+			$docs = executeSelect($sql_docs);
+			$proposal['result'][$i]['UploadedDocuments'] = $docs;
+		}
+
+		$Sql_brokers = "select b.brkrid,b.brkrnm from ".$dbPrefix.".tbmbroker b join ".$dbPrefix.".tbmsalesman s on b.centre = s.centre where b.brkrtyp = 1 and b.active = 2 and s.salesmanid = $salesmanid order by b.brkrnm";
+		$brokers = executeSelect($Sql_brokers);
+
+		$Sql_banks = "select bankid,banknm from ".$dbPrefix.".tbmsourcebank where sourcebank = 1 and active = 2";
+		$banks = executeSelect($Sql_banks);
+
+		$Sql_makemodel = "select make,model from ".$dbPrefix.".tbmmakemodel where active = 2";
+		$makemodel = executeSelect($Sql_makemodel);
+
+		$Sql_documents = "select docid,docnm from ".$dbPrefix.".tbmdocument order by docnm";
+		$documents = executeSelect($Sql_documents);
+
+		$Sql_documenttypes = "SELECT `SystemDscrptn` as doctypenm,CASE WHEN Masterid = '201' THEN '2' WHEN Masterid = '202' THEN '6' WHEN Masterid = '263' THEN '7' END AS docid FROM ".$dbPrefix.".`tbmcodedscrptnmasterdata` WHERE Masterid = '201' OR Masterid = '202' OR Masterid = '263'";
+		$documenttypes = executeSelect($Sql_documenttypes);
+
+	}
+	else{
+		$response = error_code(1038);
+		echo json_encode($response);
+		return;
+	}
+	$response = array();
+	$response["success"] = 1;
+
+	$response["salesmanid"] = $salesmanid;
+	$response["proposal"] = $proposal;
+	$response["brokers"] = $brokers;
+	$response["banks"] = $banks;
+	$response["makemodel"] = $makemodel;
+	$response["documents"] = $documents;
+	$response["doctypes"] = $documenttypes;
+	echo json_encode($response);
+
+}
+
+function postNewProposal($salesmanid,$brkrid,$bankid,$prslname){
+	$dbPrefix = $_SESSION['DB_PREFIX'];
+	$userdbPrefix = $_SESSION['USER_DB_PREFIX'];
+
+		$sql_locktables = "LOCK TABLES ".$dbPrefix.".tbrcrrntid WRITE, ".$userdbPrefix.".tbmcrrntnumberglobal WRITE";
+		$lockid = executeQuery($sql_locktables);
+
+		$sql_prid = "select CrrntBaseId,CrrntId from ".$dbPrefix.".tbrcrrntid";
+		$pr_id = executeSelect($sql_prid);
+		$baseid = $pr_id['result'][0]['CrrntBaseId'];
+		$curid = $pr_id['result'][0]['CrrntId'];
+		$prid = ($baseid*100000000+$curid);
+
+		$sql_prno = "select CrrntNumber from ".$userdbPrefix.".tbmcrrntnumberglobal where NumberSeriesId = '100000379'";
+		$prno = str_pad(executeSingleSelect($sql_prno), 6, "0", STR_PAD_LEFT);
+
+		if(isset($prid) && isset($prno)){
+			$sql_updateprid = "update ".$dbPrefix.".tbrcrrntid set crrntid = crrntid+1";
+			$affectedrows1 = executeUpdate($sql_updateprid);
+			$sql_updateprno = "update ".$userdbPrefix.".tbmcrrntnumberglobal set CrrntNumber = CrrntNumber+1 where NumberSeriesId = '100000379'";
+			$affectedrows2 = executeUpdate($sql_updateprno);
+		}
+		$sql_unlocktables = "UNLOCK TABLES";
+		$unlockid = executeQuery($sql_unlocktables);
+
+        if($unlockid >0){
+			$sql_insertproposal = "insert into ".$dbPrefix.".tbmproposal(ProposalId,ProposalNo,ProposalDt,BrkrId,BankId,ProposalNm,SalesmanId,ProposalStatus) values($prid,'$prno',now(),$brkrid,$bankid,'$prslname','$salesmanid',1)";
+        	$lastid = executeInsert($sql_insertproposal);
+
+        	//echo $prid." ".$prno." ".$affectedrows1." ".$affectedrows2." ".$lastid;
+		}
+		if($lastid>0){
+			$sql_proposalid_no = "select ProposalId,ProposalNo from ".$dbPrefix.".tbmproposal where pkid = '$lastid'";
+			$proposalid_id_no = executeSelect($sql_proposalid_no);
+			$propid = $proposalid_id_no['result'][0]['ProposalId'];
+
+			$sql_docid = "SELECT docid FROM ".$dbPrefix.".`tbmdocument`";
+			$docid = executeSelect($sql_docid);
+
+			foreach($docid['result'] as $i=> $document){
+				$documentid = $document['docid'];
+
+				$sql_insertdoc = "INSERT INTO ".$dbPrefix.".`tbmprpsldoc`(docid,proposalid,docsub) VALUES ('$documentid','$propid','N')";
+				$lastid_insertdoc = executeInsert($sql_insertdoc);
+ 			}
+		}
+
+		$response = array();
+			if($proposalid_id_no['row_count']>0){
+				$response["success"] = 1;
+				$response["message"] = 'New Proposal Successfully Created';
+				$response["proposalid"] = $proposalid_id_no['result'][0]['ProposalId'];
+				$response["proposalno"] = $proposalid_id_no['result'][0]['ProposalNo'];
+			}
+			else{
+				$response = error_code(1039);
+			}
+	echo json_encode($response);
+
+}
+
+
+function getAddress($pincode){
+	$dbPrefix = $_SESSION['DB_PREFIX'];
+
+	$sql_address = "select * from ".$dbPrefix.".tbmpincode where pincode = '$pincode'";
+	$address = executeSelect($sql_address);
+
+	$response = array();
+		if($address['row_count']>0){
 			$response["success"] = 1;
 		}
 		else{
-			$response = error_code(1049);
+			$response = error_code(1041);
 			echo json_encode($response);
 			return;
 		}
-	$response["unreconciledepositentry"] = $unreconcileentry;
+		$response["address"] = $address;
 	echo json_encode($response);
+
+}
+
+
+function sendOtp($salesmanid,$mobileno){
+	$dbPrefix = $_SESSION['DB_PREFIX'];
+	$dbPrefix_curr = $_SESSION['DB_PREFIX_CURR'];
+	$otp = generateOtp();
+	$msg = "Hello, Your one time password for mobile number verification is ".$otp." -LokSuvidha 9209058000";
+
+	$sql_chkstatus = "SELECT pkid FROM ".$dbPrefix.".tbmotp WHERE mobile = '$mobileno' and VerifyStatus=1";
+	$pkid = executeSingleSelect($sql_chkstatus);
+
+	if($pkid>0){
+		$response["success"] = 2;
+		$response["message"] = 'Mobile number is already verified!';
+		echo json_encode($response);
+		return;
+	}
+
+	$sql_insert = "INSERT INTO ".$dbPrefix.".tbmotp(`Mobile`,`Otp`,`InsertDateTime`,`ValidityDateTime`,`InsertUserId`) VALUES('$mobileno','$otp',NOW(),DATE_ADD(NOW(),INTERVAL 20 MINUTE),'$salesmanid')";
+	$lastid = executeInsert($sql_insert);
+
+	$response = array();
+	if($lastid>0){
+		$sql_insertsms = "insert into ".$dbPrefix_curr.".tbxsms(CmpnyCd,MsgDtTm,SentDtTm,Mobile,Message,MsgTag,MsgPriority,status,SentTo)
+		values ('LKSA',now(),now(),'$mobileno','$msg','OTP',0,1,3)";
+
+		$lastid = executeInsert($sql_insertsms);
+			if($lastid>0){
+				$response["success"] = 1;
+				$response["message"] = 'OTP send successfully!';
+			}
+			else{
+				$response = error_code(1047);
+				echo json_encode($response);
+				return;
+			}
+	}
+	else{
+		$response = error_code(1047);
+		echo json_encode($response);
+		return;
+	}
+
+	echo json_encode($response);
+}
+
+function generateOtp() {
+	$string = '';
+	$length = 6;
+	$chars = array();
+	$chars = array_merge($chars,array(48,49,50,51,52,53,54,55,56,57));
+  	for ($i=0;$i<$length;$i++){
+  		shuffle($chars);
+  		$string.=chr(reset($chars));
+  	}
+  	return $string;
+}
+
+function verifyOtp($mobileno,$otp){
+	$dbPrefix = $_SESSION['DB_PREFIX'];
+
+	$sql_otp = "SELECT pkid,VerifyStatus FROM ".$dbPrefix.".tbmotp WHERE mobile = '$mobileno' AND otp = '$otp' AND `ValidityDateTime` > NOW()";
+	$otp = executeSelect($sql_otp);
+
+	$pkid = 0;
+	$status = 0;
+	if($otp['row_count']>0){
+		$pkid = $otp['result'][0]['pkid'];
+		$status = $otp['result'][0]['VerifyStatus'];
+	}
+
+	if($pkid>0 AND $status==0){
+		$sql_updatestatus = "update ".$dbPrefix.".tbmotp set VerifyStatus = 1 where pkid = '$pkid'";
+		$affectedrows = executeUpdate($sql_updatestatus);
+
+		if($affectedrows>0){
+			$response["success"] = 1;
+			$response["message"] = 'Mobile number successfully verified!';
+		}
+		else{
+			$response = error_code(1048);
+			echo json_encode($response);
+			return;
+		}
+	}
+	else if($pkid>0 AND $status==1){
+			$response["success"] = 1;
+			$response["message"] = 'Mobile number successfully verified!';
+	}
+
+	else{
+		$response = error_code(1048);
+		echo json_encode($response);
+		return;
+	}
+	echo json_encode($response);
+}
+
+
+
+function uploadDocuments(){
+	$dbPrefix = $_SESSION['DB_PREFIX'];
+
+	$path = "UploadedDocuments/";
+	//$path = "D:/uploads/";
+	$response = array();
+	if (isset($_FILES['image']['name'])) {
+		$filename = isset($_POST['filename']) ? $_POST['filename'] : '';
+		$proposalid = isset($_POST['proposalid']) ? $_POST['proposalid'] : '';
+		$proposalno = isset($_POST['proposalno']) ? $_POST['proposalno'] : '';
+		$docid = isset($_POST['docid']) ? $_POST['docid'] : '';
+		$note = isset($_POST['doctypenm']) ? $_POST['doctypenm'] : '';
+		$file_name = $filename;
+
+		$subpath = floor($proposalno/1000);
+		$newpath = $path."Images_".$subpath."/";
+		if (!file_exists($newpath)) {
+		    mkdir($newpath, 0777, true);
+		}
+
+    	$target_path = $newpath . $filename;
+
+		if( file_exists($target_path) ) {
+			$no = 1;
+			while(file_exists($target_path)){
+			   	$name = substr($filename, 0, -5);
+				$no++;
+				$file_name=$name.$no.".jpg";
+			   	$target_path = $newpath.$file_name;
+			}
+		}
+
+		try {
+		 	 if (!move_uploaded_file($_FILES['image']['tmp_name'], $target_path)) {
+			 	$response["success"] = 0;
+		        $response["message"] = 'Could not upload the file!';
+		  	 }
+		  	 else{
+				$sql_insert = "INSERT INTO ".$dbPrefix.".tbmprpsldocimages(`DocId`,`ProposalId`,`ImageName`) VALUES('$docid','$proposalid','$file_name')";
+				$lastid = executeInsert($sql_insert);
+
+				if($note == ''){
+					$sql_update = "UPDATE ".$dbPrefix.".`tbmprpsldoc` SET DocSub = 'Y' WHERE `ProposalId` = '$proposalid' and DocId = '$docid'";
+					$affectedrows = executeUpdate($sql_update);
+				}
+				else{
+					$sql_update = "UPDATE ".$dbPrefix.".`tbmprpsldoc` SET `SNote` = IF(SNote IS NOT NULL, CONCAT(SNote,',$note'),'$note'),DocSub = 'Y' WHERE `ProposalId` = '$proposalid' and DocId = '$docid'";
+					$affectedrows = executeUpdate($sql_update);
+				}
+
+				$response["success"] = 1;
+		        $response["message"] = 'File uploaded successfully!';
+		   	 }
+		}
+		catch (Exception $e) {
+		  	$response["success"] = 0;
+		 	$response["message"] = $e->getMessage();
+   		}
+	}
+	else {
+	    $response["success"] = 0;
+	    $response["message"] = 'Not received any file!';
+	}
+	echo json_encode($response);
+
+}
+
+
+function updateProposal(){
+	$dbPrefix = $_SESSION['DB_PREFIX'];
+	$request = Slim::getInstance()->request();
+
+	$proposalId = $request->params('proposalId');
+	$proposalNm = $request->params('proposalNm');
+	$gender = $request->params('gender');
+	$dob = $request->params('dob');
+	$mobile = $request->params('mobile');
+	$mobile2 = $request->params('mobile2');
+	$tel1 = $request->params('tel1');
+
+	$add1 = $request->params('add1');
+	$area = $request->params('area');
+	$city = $request->params('city');
+	$tahasil = $request->params('tahasil');
+	$state = $request->params('state');
+	$pin = $request->params('pin');
+
+	$profession = $request->params('profession');
+	$annualIncome = $request->params('annualIncome');
+	$aadharCardNo = $request->params('aadharCardNo');
+
+	$guarantorName = $request->params('GuarantorName');
+	$guarantorMobile1 = $request->params('GuarantorMobile1');
+	$guarantorAadharNo = $request->params('GuarantorAadharNo');
+
+	$preferredLanguage = $request->params('preferredLanguage');
+	$ReferenceName = $request->params('ReferenceName');
+	$ReferenceMobile = $request->params('ReferenceMobile');
+
+	$bankId = $request->params('bankId');
+	$costOfVhcl = $request->params('costOfVhcl');
+	$downPayment = $request->params('downPayment');
+	$roi = $request->params('roi');
+	$grossTenure = $request->params('grossTenure');
+	$advanceEMIPeriod = $request->params('advanceEMIPeriod');
+
+
+	$docChrgFlag = $request->params('docChrgFlag');
+	$ecsFlag = $request->params('ecsFlag');
+
+	$brkrId = $request->params('brkrId');
+	$vehMake = $request->params('vehMake');
+	$vehModel = $request->params('vehModel');
+
+	$sql_pfAmt_pfPrcnt = "SELECT `ProcessingFees`,`ProcessingFeesPrcnt` FROM ".$dbPrefix.".`tbabrokersrcbnk` WHERE brkrid = '$brkrId' AND `SourceBnkId` = '$bankId'";
+	$pfAmt_pfPrcnt = executeSelect($sql_pfAmt_pfPrcnt);
+	if($pfAmt_pfPrcnt['row_count']>0){
+		$PF = $pfAmt_pfPrcnt['result'][0]['ProcessingFees'];
+		$PFPrcnt = $pfAmt_pfPrcnt['result'][0]['ProcessingFeesPrcnt'];
+	}
+	else{
+		$PF = 0;
+		$PFPrcnt = 0;
+	}
+
+	if($ecsFlag == 1){
+		$ECSAmt = 350;
+	}
+	else{
+		$ECSAmt = 0;
+	}
+
+	$bankroi = 12.50;
+
+	$serviceTaxRate = 0;
+
+	$marginMoney = $downPayment;
+	$finAmt = CalcFinAmt($costOfVhcl, $downPayment);
+	$period = CalcPeriod($grossTenure, $advanceEMIPeriod);
+	$totInterest = CalcTotInterest($finAmt, $roi, $grossTenure);
+	$instAmt = CalcInstallment($finAmt,$totInterest,$grossTenure);
+	$extraCharges = CalcExtraChrgs($finAmt, $roi, $grossTenure);
+	$srvTaxAmt = CalcSrvTax($finAmt, $roi, $grossTenure, $extraCharges, $serviceTaxRate);
+	$totAmt = CalcTotAmount($finAmt, $roi, $grossTenure, $extraCharges, $serviceTaxRate);
+	$emi = CalcEMI($totAmt, $grossTenure);
+	$advncEMIAmt = CalcAdvncEMIAmt($advanceEMIPeriod, $emi);
+	$totDueAmt = $totAmt - $advncEMIAmt;
+	$DocChrg = CalcDocumentChrg($finAmt,$docChrgFlag);
+	$PFAmt = CalcPFAmt($finAmt,$PF,$PFPrcnt);
+	$disbursementAmt = CalcDisbursementAmt($finAmt,$PFAmt,$DocChrg,$ECSAmt,$advncEMIAmt);
+	$bankEmi = CalcBankEMI($disbursementAmt, $grossTenure, $bankroi);
+	$collectionChrgs = CalcCollectionChrgs($emi, $bankEmi, $grossTenure);
+
+	$affectedrows = 0;
+	$affectedrows_grtr = 0;
+	$lastid_grtr = 0;
+	$affectedrows_financedtl = 0;
+	$lastid_financedtl = 0;
+
+	$sql_locktable = "LOCK TABLES ".$dbPrefix.".tbrcrrntid WRITE";
+	$lockid = executeQuery($sql_locktable);
+
+	$sql_grid = "select CrrntId from ".$dbPrefix.".tbrcrrntid";
+	$grid = executeSingleSelect($sql_grid);
+
+	if(isset($grid)){
+		$sql_updateCrrntId = "update ".$dbPrefix.".tbrcrrntid set crrntid = crrntid+1";
+		$affectedrows_CrrntId = executeUpdate($sql_updateCrrntId);
+	}
+	$sql_unlocktables = "UNLOCK TABLES";
+	$unlockid = executeQuery($sql_unlocktables);
+	if($unlockid >0){
+		$grtrId = $grid;
+		$srNo = 1;
+	}
+
+	$sql_updateProposal = "update ".$dbPrefix.".tbmproposal set ProposalNm ='$proposalNm', Gender='$gender', DOB='$dob', Mobile='$mobile', Mobile2='$mobile2', Tel1='$tel1', Add1='$add1', Area='$area', City='$city', Tahasil='$tahasil', State='$state', Pin='$pin', Profession='$profession', AnnualIncome='$annualIncome', AadharCardNo='$aadharCardNo', BankId='$bankId', CostOfVhcl='$costOfVhcl', RoI='$roi', BrkrId='$brkrId', VehMake='$vehMake', VehModel='$vehModel', ProposalStatus='1', RefNm1='$ReferenceName', RefMob1='$ReferenceMobile', Language='$preferredLanguage', FinanceAmt='$finAmt', TotDueAmt='$totDueAmt', ExtraCharges='$extraCharges', CollectionChrgs='$collectionChrgs', Period='$period', MarginMoney='$marginMoney', PFAmt='$PFAmt' where ProposalId = '$proposalId'";
+	$affectedrows_proposal = executeUpdate($sql_updateProposal);
+
+	$sql_chkprid_grtr = "SELECT pkid FROM ".$dbPrefix.".tbmprpslguarantors WHERE proposalid = '$proposalId'";
+	$prid_grtr = executeSingleSelect($sql_chkprid_grtr);
+	if($prid_grtr>0){
+		$sql_updategrtr = "UPDATE ".$dbPrefix.".tbmprpslguarantors SET `GrtrNm`='$guarantorName',`Mobile`='$guarantorMobile1',`AadharCardNo`='$guarantorAadharNo' WHERE ProposalId = '$proposalId'";
+		$affectedrows_grtr = executeUpdate($sql_updategrtr);
+	}
+	else{
+		$sql_insertgrtr = "INSERT INTO ".$dbPrefix.".tbmprpslguarantors(`SrNo`,`GrtrId`,`ProposalId`,`GrtrNm`,`Mobile`,`AadharCardNo`) VALUES('$srNo','$grtrId','$proposalId','$guarantorName','$guarantorMobile1','$guarantorAadharNo')";
+		$lastid_grtr = executeInsert($sql_insertgrtr);
+	}
+
+	$sql_chkprid_financedtl = "SELECT ProposalId FROM ".$dbPrefix.".tbaproposalfnncdtls WHERE ProposalId = '$proposalId'";
+	$prid_financedtl = executeSingleSelect($sql_chkprid_financedtl);
+	if($prid_financedtl>0){
+		$sql_updatefinancedtl = "UPDATE ".$dbPrefix.".tbaproposalfnncdtls SET `FinanceAmt`='$finAmt',`RoI`='$roi',`BankRoI`='$bankroi',`SrvTaxRate`='$serviceTaxRate',`TotDueAmt`='$totDueAmt',`ExtraCharges`='$extraCharges',`CollectionChrgs`='$collectionChrgs',`Period`='$period',`CostOfVhcl`='$costOfVhcl',`MarginMoney`='$marginMoney',`PFAmt`='$PFAmt',`OnRoadPrice`='$costOfVhcl',`DownPayment`='$downPayment',`DocumentChrgAmt`='$DocChrg',`DisbursementAmt`='$disbursementAmt',`BankEMI`='$bankEmi',`AdvanceEMI`='$advncEMIAmt',`GrossPeriod`='$grossTenure',`AdvancePeriod`='$advanceEMIPeriod',`ECSAmount`='$ECSAmt',`ECSFlag`='$ecsFlag',`DocumentChrgFlag`='$docChrgFlag' WHERE ProposalId = '$proposalId'";
+		$affectedrows_financedtl = executeUpdate($sql_updatefinancedtl);
+	}
+	else{
+		$sql_insertfinancedtl = "INSERT INTO ".$dbPrefix.".tbaproposalfnncdtls(`ProposalId`,`FinanceAmt`,`RoI`,`BankRoI`,`SrvTaxRate`,`TotDueAmt`,`ExtraCharges`,`CollectionChrgs`,`Period`,`CostOfVhcl`,`MarginMoney`,`PFAmt`,`OnRoadPrice`,`DownPayment`,`DocumentChrgAmt`,`DisbursementAmt`,`BankEMI`,`AdvanceEMI`,`GrossPeriod`,`AdvancePeriod`,`ECSAmount`,`ECSFlag`,`DocumentChrgFlag`)VALUES('$proposalId','$finAmt','$roi','$bankroi','$serviceTaxRate','$totDueAmt','$extraCharges','$collectionChrgs','$period','$costOfVhcl','$marginMoney','$PFAmt','$costOfVhcl','$downPayment','$DocChrg','$disbursementAmt','$bankEmi','$advncEMIAmt','$grossTenure','$advanceEMIPeriod','$ECSAmt','$ecsFlag','$docChrgFlag')";
+		$lastid_financedtl = executeInsertQuery($sql_insertfinancedtl);
+	}
+
+
+	$response = array();
+		if($affectedrows_proposal>0 OR $affectedrows_grtr>0 OR $lastid_grtr>0 OR $affectedrows_financedtl>0 OR $lastid_financedtl>0){
+			$response["success"] = 1;
+			$response["message"] = 'Proposal Successfuly Saved';
+		}
+		else{
+			$response = error_code(1040);
+		}
+	echo json_encode($response);
+
+}
+
+
+
+
+
+function CalcFinAmt($OnRoadPrice, $DownPaymnt){
+	$FinAmt = 0;
+  	$FinAmt = $OnRoadPrice - $DownPaymnt;
+   	return $FinAmt;
+}
+
+function CalcPeriod($GTenure, $AEmiPeroid){
+ 	$Period = 0;
+ 	$Period = $GTenure - $AEmiPeroid;
+ 	return $Period;
+}
+
+function CalcTotInterest($FinAmt, $roi, $GTenure){
+   	$IntAmt  = 0;
+    $IntAmt = ($FinAmt * $roi * $GTenure) / (100 * 12);
+    return $IntAmt;
+}
+
+function CalcInstallment($FinAmt, $InterestAmt, $GTenure){
+  	$InstAmt = 0;
+  	$InstAmt = ($FinAmt + $InterestAmt) / $GTenure;
+ 	//return ceil($InstAmt);
+ 	return $InstAmt;
+}
+
+function CalcExtraChrgs($FinAmt, $roi, $GTenure){
+  	$IntAmt = 0;
+    $InstAmt = 0;
+    $RndInstAmt = 0;
+    $ExtraChrgs = 0;
+
+    $IntAmt = CalcTotInterest($FinAmt, $roi, $GTenure);      				//Calculating total interest
+
+    if($GTenure>0){
+       $InstAmt = ($FinAmt + $IntAmt) / $GTenure;           				//Calculating installment amount
+	}
+    $RndInstAmt = ceil($InstAmt);                							//Rounding off
+
+    $InstAmt = $InstAmt - floor($InstAmt);
+
+    if ($InstAmt > 0){
+    	$ExtraChrgs = (($RndInstAmt * $GTenure) - ($FinAmt + $IntAmt));   	//Calculating extra charges
+    }
+    else{
+        $ExtraChrgs = 0;
+  	}
+	return $ExtraChrgs;
+
+}
+
+function CalcSrvTax($FinAmt, $roi, $GTenure, $ExtraChrgs, $SrvTaxRate){
+  	$SrvTaxAmt = 0;
+  	$IntAmt = 0;
+
+  	$IntAmt = CalcTotInterest($FinAmt, $roi, $GTenure);
+   	$SrvTaxAmt = (($IntAmt + $ExtraChrgs) * $SrvTaxRate) / 100;
+
+    return $SrvTaxAmt;
+}
+
+function CalcTotAmount($FinAmt, $roi, $GTenure, $ExtraChrgs, $SrvTaxRate){
+   	$TotAmt = 0;
+    $SrvTaxAmt = 0;
+    $IntAmt = 0;
+
+ 	$IntAmt = CalcTotInterest($FinAmt, $roi, $GTenure);          					//Calculation of total interest
+    $SrvTaxAmt = CalcSrvTax($FinAmt, $roi, $GTenure, $ExtraChrgs, $SrvTaxRate);     //Calculating service tax amount
+
+    $TotAmt = $FinAmt + $IntAmt + $SrvTaxAmt + $ExtraChrgs;    						//Calculating total amount
+
+  	return $TotAmt;
+}
+
+function CalcEMI($TotAmt, $GTenure){
+  	$EMI = 0;
+	$EMI = floor($TotAmt / $GTenure);
+
+    return $EMI;
+}
+
+function CalcAdvncEMIAmt($AEmiPeroid, $EMI){
+ 	$AEmiAmt = 0;
+   	$AEmiAmt = $EMI * $AEmiPeroid;
+    return $AEmiAmt;
+}
+
+function CalcDocumentChrg($FinAmt,$DocChrgFlag){
+ 	$DocChrg = 0;
+
+ 	if ($DocChrgFlag == 1){
+    	$DocChrg = ($FinAmt * (0.5)) / 100;
+    }
+    else{
+       $DocChrg = 0;
+   	}
+	return $DocChrg;
+}
+
+function CalcPFAmt($FinAmt,$PF,$PFPrcnt){
+	$PFAmt = 0;
+	$TolFee = 0;
+	if ($PFPrcnt > 0){
+		$TolFee = ($FinAmt * $PFPrcnt) / 100;
+	}
+	$PFAmt = $TolFee + $PF;
+	return Round($PFAmt);
+}
+
+function CalcDisbursementAmt($FinanceAmt,$PFAmt,$DocumentChrg,$ECSAmount,$AdvaceEMI){
+   	$DisbursementAmt = 0;
+	$DisbursementAmt = $FinanceAmt - ($PFAmt + $DocumentChrg + $ECSAmount + $AdvaceEMI);
+    return $DisbursementAmt;
+}
+
+function CalcBankEMI($p, $n, $r){
+	$BankEMI = 0;
+ 	$lamount = $p;
+ 	$period = $n;
+ 	$roi = $r;
+
+	$mi = $roi/100;  // Monthly interest %ge
+	$ny = $period;   // No of months
+	$mic = $mi /12;  // Monthly interest
+
+	$top = pow((1+$mic),$ny);
+	$bottom = $top - 1;
+	$sp = $top / $bottom;
+
+	$BankEMI = floor((($lamount * $mic) * $sp));
+
+ 	return $BankEMI;
+}
+
+function CalcCollectionChrgs($EMI, $BankEMI, $Period){
+	$CollChrgs = 0;
+   	$CollChrgs = ($EMI - $BankEMI) * $Period;
+   	return $CollChrgs;
 }
 
 ?>

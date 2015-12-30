@@ -78,12 +78,26 @@ function executeInsert($q){
         return $value;
 }
 
+function executeInsertQuery($q){
+        $conn = connect();
+        $result = mysqli_query($conn, $q);
+       	if($result === TRUE){
+       		$value =1;
+       	}
+       	else{
+       		$value =0;
+       	}
+        mysqli_close($conn);
+        return $value;
+}
+
 function executeQuery($q){
         $conn = connect();
         $result = mysqli_query($conn, $q);
 		mysqli_close($conn);
         return $result;
 }
+
 
 function startsWith($haystack, $needle){return $needle === "" || strpos($haystack, $needle) === 0;}
 
