@@ -1116,6 +1116,9 @@ function format_ledger($l){
 	$i =-1;	$p = 0; $balance = 0; $rowStarted = 0;
 	$EMI_CANCELLED = -1; $EMI_PENDING = 0; $EMI_CLEARED = 1; $EMI_BOUNCED = 2;
 
+	if(!isset($l['result'])){
+		return $ledger;
+	}
 	foreach ($l['result'] as $row){
 		if($row['source'] == 1){ // This is a row for DUE EMI from Duelist so start a new row for this
 			$balance += $row['DueAmt'];
@@ -1189,11 +1192,10 @@ function deal_ledger($dealid,$hpdt){
 	$hp_mm = date("n", strtotime($hpdt));
 	$hp_yy= date("Y", strtotime($hpdt));
 	$startyy = ($hp_mm < 4 ? ($hp_yy-1) : $hp_yy);
-
-
+	$endyy = (date('n') < 4 ? (date('Y')-1) : date('Y'));
 	//TO-DO: Loop exist criteria is wrong for months of JAN, FEB, MARCH. Check it.
 
-	for ($d = $startyy; $d <= date('Y'); $d++){
+	for ($d = $startyy; $d <= $endyy; $d++){
 		$db = "$dbPrefix".$d."".str_pad($d+1-2000, 2, '0', STR_PAD_LEFT);
 		$q2 .="
 			SELECT t1.sraid, b.brkrnm as sranm, t1.rcptdt as Date, round(sum(t2.rcptamt)) as Received, t1.rcptid, t1.rcptpaymode as mode, t1.CBFlg, t1.CBCCLFlg, t1.CCLflg, DATE_FORMAT(t1.cbdt, '%d-%b-%y') as cbdt, DATE_FORMAT(t1.ccldt, '%d-%b-%y') as  ccldt, t1.rmrk as Remarks, t1.cbrsn,
@@ -1823,15 +1825,15 @@ function sendOtp($salesmanid,$mobileno){
 		values ('LKSA',now(),now(),'$mobileno','$msg','OTP',0,1,3)";
 
 		$lastid = executeInsert($sql_insertsms);
-			if($lastid>0){
-				$response["success"] = 1;
-				$response["message"] = 'OTP send successfully!';
-			}
-			else{
-				$response = error_code(1047);
-				echo json_encode($response);
-				return;
-			}
+		if($lastid>0){
+			$response["success"] = 1;
+			$response["message"] = 'OTP send successfully!';
+		}
+		else{
+			$response = error_code(1047);
+			echo json_encode($response);
+			return;
+		}
 	}
 	else{
 		$response = error_code(1047);
@@ -2001,7 +2003,6 @@ function updateProposal(){
 	$roi = $request->params('roi');
 	$grossTenure = $request->params('grossTenure');
 	$advanceEMIPeriod = $request->params('advanceEMIPeriod');
-
 
 	$docChrgFlag = $request->params('docChrgFlag');
 	$ecsFlag = $request->params('ecsFlag');

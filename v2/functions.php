@@ -5,8 +5,8 @@ require 'errorcodes.php';
 
 $mm = date('m'); $yy = date('Y');
 $_SESSION['DB_PREFIX'] = "dev_lksa";
-$_SESSION['DB_PREFIX_CURR'] = "dev_lksa".($mm < 4 ? ($yy - 1)."".substr($yy,-2) : $yy."".(substr($yy,-2)+1));
-$_SESSION['DB_PREFIX_LAST'] = "dev_lksa".($mm < 4 ? ($yy - 2)."".substr(($yy-1),-2) : ($yy-1)."".(substr(($yy-1),-2)+1));
+$_SESSION['DB_PREFIX_CURR'] = "dev_lksa".($mm < 4 ? ($yy - 1)."".substr($yy,-2) : $yy."".(substr($yy+1,-2)));
+$_SESSION['DB_PREFIX_LAST'] = "dev_lksa".($mm < 4 ? ($yy - 2)."".substr(($yy-1),-2) : ($yy-1)."".(substr(($yy),-2)));
 $_SESSION['USER_DB_PREFIX'] = "dev_ob_sa";
 
 $_SESSION['ROWS_IN_TABLE'] = 30;
