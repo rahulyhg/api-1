@@ -1901,8 +1901,8 @@ function verifyOtp($mobileno,$otp){
 function uploadDocuments(){
 	$dbPrefix = $_SESSION['DB_PREFIX'];
 
-	$path = "UploadedDocuments/";
-	//$path = "D:/uploads/";
+	//$path = "UploadedDocuments/";
+	$path = "D:\inetpub\wwwroot\dev.loksuvidha.local\content\ProposalFiles";
 	$response = array();
 	if (isset($_FILES['image']['name'])) {
 		$filename = isset($_POST['filename']) ? $_POST['filename'] : '';
