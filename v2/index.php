@@ -1077,8 +1077,8 @@ function smsresponse($id){
 function sendsms($mobileno,$msg,$dealno,$msgtag,$sentto){
 	$dbPrefix_curr = $_SESSION['DB_PREFIX_CURR'];
 
-	$sql_insert = "insert into ".$dbPrefix_curr.".tbxsms(CmpnyCd,MsgDtTm,SentDtTm,Mobile,Message,MsgTag,DealNo,MsgPriority,status,SentTo)
-	values ('LKSA',now(),now(),'$mobileno','$msg','$msgtag','$dealno',1,1,'$sentto')";
+	$sql_insert = "insert into ".$dbPrefix_curr.".tbxsms(CmpnyCd,MsgDtTm,Mobile,Message,MsgTag,DealNo,MsgPriority,status,SentTo)
+	values ('LKSA',now(),'$mobileno','$msg','$msgtag','$dealno',1,0,'$sentto')";
 
 	$lastid = executeInsert($sql_insert);
 		if($lastid>0){
@@ -1664,7 +1664,7 @@ function getProposaldata($imei){
 
 	if(isset($salesmanid)){
 
-		$sql_proposal = "select p.ProposalId,p.ProposalNo,date_format(p.ProposalDt,'%d-%b-%Y') as ProposalDt,p.ProposalStatus as ProposalStatusId,(case when p.ProposalStatus=0 then 'ALL' when p.ProposalStatus=1 then 'DRAFT' when p.ProposalStatus=2 then 'APPROVAL' when p.ProposalStatus=3 then 'MORE INFO' when p.ProposalStatus=4 then 'APPROVED' when p.ProposalStatus=5 then 'REJECTED' when p.ProposalStatus=6 then 'DEAL CREATED' when p.ProposalStatus=7 then 'CANCELLED' when p.ProposalStatus=8 then 'DRAFT OR MORE INFO' when p.ProposalStatus=9 then 'DRAFT OR MORE INFO OR APPROVED' when p.ProposalStatus=10 then 'DRAFT AND PENDING FOR VERIFICATION' end) as ProposalStatus,p.ProposalNm,p.Gender,p.DOB,p.Mobile,otp1.VerifyStatus as MobileVerify,p.Mobile2,otp2.VerifyStatus as Mobile2Verify,p.Tel1,p.Pin,p.Add1,p.Add2,p.Area,p.City,p.Tahasil,p.State,p.Profession,round(p.AnnualIncome) as AnnualIncome,p.AadharCardNo,p.Language,p.RefNm1,p.RefMob1,otpre.VerifyStatus as ReferenceMobileVerify,p.BankId,round(p.CostOfVhcl) as CostOfVhcl,p.RoI,p.Period,p.BrkrId,br.BrkrNm,tcase(p.VehMake)as VehMake,tcase(p.VehModel) as VehModel,round(p.FinanceAmt) as FinanceAmt,pfd.ECSFlag,pfd.DocumentChrgFlag,pg.GrtrNm,pg.Add1 as GrtrAdd1,pg.Add2 as GrtrAdd2,pg.City as GrtrCity,pg.Mobile as GrtrMobile,otpgr.VerifyStatus as GuarantorMobileVerify,pg.AadharCardNo as GrtrAadharCardNo,350 as ECSAmount from ".$dbPrefix.".tbmproposal p
+		$sql_proposal = "select p.ProposalId,p.ProposalNo,date_format(p.ProposalDt,'%d-%b-%Y') as ProposalDt,p.ProposalStatus as ProposalStatusId,(case when p.ProposalStatus=0 then 'ALL' when p.ProposalStatus=1 then 'DRAFT' when p.ProposalStatus=2 then 'APPROVAL' when p.ProposalStatus=3 then 'MORE INFO' when p.ProposalStatus=4 then 'APPROVED' when p.ProposalStatus=5 then 'REJECTED' when p.ProposalStatus=6 then 'DEAL CREATED' when p.ProposalStatus=7 then 'CANCELLED' when p.ProposalStatus=8 then 'DRAFT OR MORE INFO' when p.ProposalStatus=9 then 'DRAFT OR MORE INFO OR APPROVED' when p.ProposalStatus=10 then 'DRAFT AND PENDING FOR VERIFICATION' end) as ProposalStatus,p.ProposalNm,(case when p.Gender=1 then 'MALE' when p.Gender=2 then 'FEMALE' end) as Gender,p.DOB,p.Mobile,otp1.VerifyStatus as MobileVerify,p.Mobile2,otp2.VerifyStatus as Mobile2Verify,p.Tel1,p.Pin,p.Add1,p.Add2,p.Area,p.City,p.Tahasil,p.State,p.Profession,round(p.AnnualIncome) as AnnualIncome,p.AadharCardNo,p.Language,p.RefNm1,p.RefMob1,otpre.VerifyStatus as ReferenceMobileVerify,p.BankId,round(p.CostOfVhcl) as CostOfVhcl,p.RoI,p.Period,p.BrkrId,br.BrkrNm,tcase(p.VehMake)as VehMake,tcase(p.VehModel) as VehModel,round(p.FinanceAmt) as FinanceAmt,pfd.ECSFlag,pfd.DocumentChrgFlag,pg.GrtrNm,pg.Add1 as GrtrAdd1,pg.Add2 as GrtrAdd2,pg.City as GrtrCity,pg.Mobile as GrtrMobile,otpgr.VerifyStatus as GuarantorMobileVerify,pg.AadharCardNo as GrtrAadharCardNo,md.CodeDscrptnMasterDataId as ECSAmount from ".$dbPrefix.".tbmproposal p
 		left join ".$dbPrefix.".tbmbroker br on p.BrkrId = br.BrkrId
 		left join ".$dbPrefix.".tbmprpslguarantors pg on p.ProposalId = pg.ProposalId
 		left join ".$dbPrefix.".tbaproposalfnncdtls pfd on p.ProposalId = pfd.ProposalId
@@ -1672,7 +1672,8 @@ function getProposaldata($imei){
 		left join ".$dbPrefix.".tbmotp otp2 on p.Mobile2 = otp2.mobile and otp2.VerifyStatus=1
 		left join ".$dbPrefix.".tbmotp otpgr on pg.Mobile = otpgr.mobile and otpgr.VerifyStatus=1
 		left join ".$dbPrefix.".tbmotp otpre on p.RefMob1 = otpre.mobile and otpre.VerifyStatus=1
-		where p.salesmanid = $salesmanid AND `ProposalDt`> DATE_SUB(NOW(), INTERVAL 4 MONTH)order by p.pkid desc";
+		left join ".$dbPrefix.".tbmcodedscrptnmasterdata md on MasterId = 265
+		where p.salesmanid = $salesmanid AND p.ProposalDt > DATE_SUB(NOW(), INTERVAL 4 MONTH)order by p.pkid desc";
 		$proposal = executeSelect($sql_proposal);
 
 		foreach($proposal['result'] as $i=> $doc){
@@ -1683,6 +1684,7 @@ function getProposaldata($imei){
 		}
 
 		$Sql_brokers = "select b.brkrid,b.brkrnm from ".$dbPrefix.".tbmbroker b join ".$dbPrefix.".tbmsalesman s on b.centre = s.centre where b.brkrtyp = 1 and b.active = 2 and s.salesmanid = $salesmanid order by b.brkrnm";
+		//$Sql_brokers = "SELECT sd.brkrid,b.brkrnm FROM ".$dbPrefix.".tbasalesmandealer sd JOIN ".$dbPrefix.".tbmbroker b ON sd.brkrid = //b.brkrid WHERE b.brkrtyp = 1 AND b.active = 2 AND sd.salesmanid = $salesmanid AND sd.active = 2 ORDER BY b.brkrnm";
 		$brokers = executeSelect($Sql_brokers);
 
 		$Sql_banks = "select bankid,banknm from ".$dbPrefix.".tbmsourcebank where sourcebank = 1 and active = 2";
@@ -1743,7 +1745,7 @@ function postNewProposal($salesmanid,$brkrid,$bankid,$prslname){
 		$unlockid = executeQuery($sql_unlocktables);
 
         if($unlockid >0){
-			$sql_insertproposal = "insert into ".$dbPrefix.".tbmproposal(ProposalId,ProposalNo,ProposalDt,BrkrId,BankId,ProposalNm,SalesmanId,ProposalStatus) values($prid,'$prno',now(),$brkrid,$bankid,'$prslname','$salesmanid',1)";
+			$sql_insertproposal = "insert into ".$dbPrefix.".tbmproposal(ProposalId,ProposalNo,ProposalDt,BrkrId,BankId,ProposalNm,SalesmanId,ProposalStatus,EntryTyp) values($prid,'$prno',now(),$brkrid,$bankid,'$prslname','$salesmanid',1,1)";
         	$lastid = executeInsert($sql_insertproposal);
 
         	//echo $prid." ".$prno." ".$affectedrows1." ".$affectedrows2." ".$lastid;
@@ -1821,8 +1823,8 @@ function sendOtp($salesmanid,$mobileno){
 
 	$response = array();
 	if($lastid>0){
-		$sql_insertsms = "insert into ".$dbPrefix_curr.".tbxsms(CmpnyCd,MsgDtTm,SentDtTm,Mobile,Message,MsgTag,MsgPriority,status,SentTo)
-		values ('LKSA',now(),now(),'$mobileno','$msg','OTP',0,1,3)";
+		$sql_insertsms = "insert into ".$dbPrefix_curr.".tbxsms(CmpnyCd,MsgDtTm,Mobile,Message,MsgTag,MsgPriority,status,SentTo)
+		values ('LKSA',now(),'$mobileno','$msg','OTP',0,0,3)";
 
 		$lastid = executeInsert($sql_insertsms);
 		if($lastid>0){
@@ -1902,7 +1904,7 @@ function uploadDocuments(){
 	$dbPrefix = $_SESSION['DB_PREFIX'];
 
 	//$path = "UploadedDocuments/";
-	$path = "D:\inetpub\wwwroot\dev.loksuvidha.local\content\ProposalFiles";
+	$path = "D:/inetpub/wwwroot/dev.loksuvidha.local/content/ProposalFiles/";
 	$response = array();
 	if (isset($_FILES['image']['name'])) {
 		$filename = isset($_POST['filename']) ? $_POST['filename'] : '';
@@ -1933,7 +1935,7 @@ function uploadDocuments(){
 		try {
 		 	 if (!move_uploaded_file($_FILES['image']['tmp_name'], $target_path)) {
 			 	$response["success"] = 0;
-		        $response["message"] = 'Could not upload the file!';
+		        $response["message"] = 'Could not upload the document!';
 		  	 }
 		  	 else{
 				$sql_insert = "INSERT INTO ".$dbPrefix.".tbmprpsldocimages(`DocId`,`ProposalId`,`ImageName`) VALUES('$docid','$proposalid','$file_name')";
@@ -1948,8 +1950,19 @@ function uploadDocuments(){
 					$affectedrows = executeUpdate($sql_update);
 				}
 
-				$response["success"] = 1;
-		        $response["message"] = 'File uploaded successfully!';
+				$sql_docs = "SELECT '$proposalid' as proposalid,docid,(case when docid = 1 then 'POST DATED CHEQUES' when docid = 2 then 'ADDRESS PROOF' when docid = 3 then 'CUSTOMER AADHAR CARD' when docid = 4 then 'GUARANTOR AADHAR CARD' when docid = 5 then 'INSURANCE' when docid = 6 then 'INCOME PROOF' when docid = 7 then 'ID PROOF' when docid = 8 then 'CUSTOMER SIGNATURE' when docid = 9 then 'AGREEMENT' when docid = 10 then 'INVOICE' when docid = 11 then 'DOWNPAYMENT RECEIPT' when docid = 12 then 'QUATATION' when docid = 13 then 'CUSTOMER PHOTO' when docid = 14 then 'GUARANTOR PHOTO' end) as docname,snote as doctype FROM ".$dbPrefix.".`tbmprpsldoc` WHERE proposalid='$proposalid' AND docsub='Y'";
+				$docs = executeSelect($sql_docs);
+
+				if($docs['row_count']>0){
+					$response["success"] = 1;
+		        	$response["message"] = 'document uploaded successfully!';
+		        	$response["UploadedDocuments"] = $docs;
+				}
+				else{
+					$response["success"] = 0;
+		        	$response["message"] = 'Could not upload the document!';
+		        }
+
 		   	 }
 		}
 		catch (Exception $e) {
@@ -2023,13 +2036,19 @@ function updateProposal(){
 	}
 
 	if($ecsFlag == 1){
-		$ECSAmt = 350;
+		$sql_ECSAmt = "SELECT `CodeDscrptnMasterDataId` FROM ".$dbPrefix.".`tbmcodedscrptnmasterdata` WHERE `MasterId` = '265'";
+		$ECSAmt = executeSingleSelect($sql_ECSAmt);
+
+		//$ECSAmt = 350;
 	}
 	else{
 		$ECSAmt = 0;
 	}
 
-	$bankroi = 12.50;
+	$sql_bankroi = "SELECT BankRoi FROM ".$dbPrefix.".`tbmsourcebank` WHERE BankId = '$bankId'";
+	$bankroi = executeSingleSelect($sql_bankroi);
+
+	//$bankroi = 12.50;
 
 	$serviceTaxRate = 0;
 
@@ -2243,7 +2262,8 @@ function CalcBankEMI($p, $n, $r){
 	$bottom = $top - 1;
 	$sp = $top / $bottom;
 
-	$BankEMI = floor((($lamount * $mic) * $sp));
+	//$BankEMI = floor((($lamount * $mic) * $sp));
+	$BankEMI = round((($lamount * $mic) * $sp));
 
  	return $BankEMI;
 }
