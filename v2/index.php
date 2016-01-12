@@ -1664,7 +1664,7 @@ function getProposaldata($imei){
 
 	if(isset($salesmanid)){
 
-		$sql_proposal = "select p.ProposalId,p.ProposalNo,date_format(p.ProposalDt,'%d-%b-%Y') as ProposalDt,p.ProposalStatus as ProposalStatusId,(case when p.ProposalStatus=0 then 'ALL' when p.ProposalStatus=1 then 'DRAFT' when p.ProposalStatus=2 then 'APPROVAL' when p.ProposalStatus=3 then 'MORE INFO' when p.ProposalStatus=4 then 'APPROVED' when p.ProposalStatus=5 then 'REJECTED' when p.ProposalStatus=6 then 'DEAL CREATED' when p.ProposalStatus=7 then 'CANCELLED' when p.ProposalStatus=8 then 'DRAFT OR MORE INFO' when p.ProposalStatus=9 then 'DRAFT OR MORE INFO OR APPROVED' when p.ProposalStatus=10 then 'DRAFT AND PENDING FOR VERIFICATION' end) as ProposalStatus,p.ProposalNm,(case when p.Gender=1 then 'MALE' when p.Gender=2 then 'FEMALE' end) as Gender,p.DOB,p.Mobile,otp1.VerifyStatus as MobileVerify,p.Mobile2,otp2.VerifyStatus as Mobile2Verify,p.Tel1,p.Pin,p.Add1,p.Add2,p.Area,p.City,p.Tahasil,p.State,p.Profession,round(p.AnnualIncome) as AnnualIncome,p.AadharCardNo,p.Language,p.RefNm1,p.RefMob1,otpre.VerifyStatus as ReferenceMobileVerify,p.BankId,round(p.CostOfVhcl) as CostOfVhcl,p.RoI,p.Period,p.BrkrId,br.BrkrNm,tcase(p.VehMake)as VehMake,tcase(p.VehModel) as VehModel,round(p.FinanceAmt) as FinanceAmt,pfd.ECSFlag,pfd.DocumentChrgFlag,pg.GrtrNm,pg.Add1 as GrtrAdd1,pg.Add2 as GrtrAdd2,pg.City as GrtrCity,pg.Mobile as GrtrMobile,otpgr.VerifyStatus as GuarantorMobileVerify,pg.AadharCardNo as GrtrAadharCardNo,md.CodeDscrptnMasterDataId as ECSAmount from ".$dbPrefix.".tbmproposal p
+		$sql_proposal = "select p.ProposalId,p.ProposalNo,date_format(p.ProposalDt,'%d-%b-%Y') as ProposalDt,p.ProposalStatus as ProposalStatusId,(case when p.ProposalStatus=0 then 'ALL' when p.ProposalStatus=1 then 'DRAFT' when p.ProposalStatus=2 then 'APPROVAL' when p.ProposalStatus=3 then 'MORE INFO' when p.ProposalStatus=4 then 'APPROVED' when p.ProposalStatus=5 then 'REJECTED' when p.ProposalStatus=6 then 'DEAL CREATED' when p.ProposalStatus=7 then 'CANCELLED' when p.ProposalStatus=8 then 'DRAFT OR MORE INFO' when p.ProposalStatus=9 then 'DRAFT OR MORE INFO OR APPROVED' when p.ProposalStatus=10 then 'DRAFT AND PENDING FOR VERIFICATION' end) as ProposalStatus,p.ProposalNm,(case when p.Gender=1 then 'MALE' when p.Gender=2 then 'FEMALE' end) as Gender,p.DOB,p.Mobile,otp1.VerifyStatus as MobileVerify,p.Mobile2,otp2.VerifyStatus as Mobile2Verify,p.Tel1,p.Pin,p.Add1,p.Add2,p.Area,p.City,p.Tahasil,p.State,p.Profession,round(p.AnnualIncome) as AnnualIncome,p.AadharCardNo,p.Language,p.RefNm1,p.RefMob1,otpre.VerifyStatus as ReferenceMobileVerify,p.BankId,round(p.CostOfVhcl) as CostOfVhcl,p.RoI,pfd.GrossPeriod,pfd.AdvancePeriod,p.Period,p.BrkrId,br.BrkrNm,tcase(p.VehMake)as VehMake,tcase(p.VehModel) as VehModel,round(p.FinanceAmt) as FinanceAmt,pfd.ECSFlag,pfd.DocumentChrgFlag,pg.GrtrNm,pg.Add1 as GrtrAdd1,pg.Add2 as GrtrAdd2,pg.City as GrtrCity,pg.Mobile as GrtrMobile,otpgr.VerifyStatus as GuarantorMobileVerify,pg.AadharCardNo as GrtrAadharCardNo,md.CodeDscrptnMasterDataId as ECSAmount from ".$dbPrefix.".tbmproposal p
 		left join ".$dbPrefix.".tbmbroker br on p.BrkrId = br.BrkrId
 		left join ".$dbPrefix.".tbmprpslguarantors pg on p.ProposalId = pg.ProposalId
 		left join ".$dbPrefix.".tbaproposalfnncdtls pfd on p.ProposalId = pfd.ProposalId
@@ -1672,7 +1672,7 @@ function getProposaldata($imei){
 		left join ".$dbPrefix.".tbmotp otp2 on p.Mobile2 = otp2.mobile and otp2.VerifyStatus=1
 		left join ".$dbPrefix.".tbmotp otpgr on pg.Mobile = otpgr.mobile and otpgr.VerifyStatus=1
 		left join ".$dbPrefix.".tbmotp otpre on p.RefMob1 = otpre.mobile and otpre.VerifyStatus=1
-		left join ".$dbPrefix.".tbmcodedscrptnmasterdata md on MasterId = 265
+		left join ".$dbPrefix.".tbmcodedscrptnmasterdata md on MasterId=265
 		where p.salesmanid = $salesmanid AND p.ProposalDt > DATE_SUB(NOW(), INTERVAL 4 MONTH)order by p.pkid desc";
 		$proposal = executeSelect($sql_proposal);
 
@@ -2066,8 +2066,8 @@ function updateProposal(){
 	$DocChrg = CalcDocumentChrg($finAmt,$docChrgFlag);
 	$PFAmt = CalcPFAmt($finAmt,$PF,$PFPrcnt);
 	$disbursementAmt = CalcDisbursementAmt($finAmt,$PFAmt,$DocChrg,$ECSAmt,$advncEMIAmt);
-	$bankEmi = CalcBankEMI($disbursementAmt, $grossTenure, $bankroi);
-	$collectionChrgs = CalcCollectionChrgs($emi, $bankEmi, $grossTenure);
+	$bankEmi = CalcBankEMI($disbursementAmt, $period, $bankroi);
+	$collectionChrgs = CalcCollectionChrgs($emi, $bankEmi, $period);
 
 	$affectedrows = 0;
 	$affectedrows_grtr = 0;
