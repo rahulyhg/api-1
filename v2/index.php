@@ -42,6 +42,7 @@ $app->get('/customerdealdetails/:dealid', 'getCustomerDealDetails');  //Consumer
 
 $app->get('/accountbalance/:acid/:acxndt', 'getAcBalance');
 $app->get('/unreconciledepositentry/:acid', 'getUnreconcileDepositEntry');
+$app->get('/cashinhand/:sraid', 'getCashInHand');
 
 $app->get('/proposaldata/:imei', 'getProposaldata');
 $app->get('/newproposal/:salesmanid/:brkrid/:bankid/:prslname', 'postNewProposal');
@@ -1653,6 +1654,28 @@ function getUnreconcileDepositEntry($acid){
 	echo json_encode($response);
 }
 
+
+function getCashInHand($sraid){
+	$dbPrefix = $_SESSION['DB_PREFIX'];
+
+	$response = array();
+    $rcptamt = 0;
+
+    $sql = "SELECT rcptamt FROM ".$dbPrefix.".tbmcashinhand WHERE empid = '$sraid'";
+    $result = executeSelect($sql);
+
+    if($result['row_count']>0){
+		$rcptamt = $result['result'][0]['rcptamt'];
+		$response["success"] = 1;
+        $response["rcptamt"] = $rcptamt;
+	}
+    else{
+        $response = error_code(1050);
+        echo json_encode($response);
+        return;
+    }
+	echo json_encode($response);
+}
 
 
 
