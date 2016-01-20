@@ -50,5 +50,6 @@ $error_codes = array(
 1047 => "Failed to send OTP",
 1048 => "Failed to varify mobile number",
 1049 => "No Unreconcile Deposit Entry Found",
-1050 => "No Cash In Hand Record Found");
+1050 => "No Cash In Hand Record Found",
+1051 => "Failed to post Deposit Entry");
 ?>
