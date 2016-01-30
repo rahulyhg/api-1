@@ -1681,6 +1681,7 @@ function getCashInHand($sraid){
 
 function postDepositEntry($tranno,$posid,$trandate,$bankid,$bankacid,$branchid,$branchcode,$amount,$trantime,$usedlimit){
 	$dbPrefix_curr = $_SESSION['DB_PREFIX_CURR'];
+	$dbPrefix = $_SESSION['DB_PREFIX'];
 
 	$sql_locktable = "LOCK TABLES ".$dbPrefix_curr.".`tbxcuryymmno` WRITE";
 	$lockid = executeQuery($sql_locktable);
@@ -1719,6 +1720,22 @@ function postDepositEntry($tranno,$posid,$trandate,$bankid,$bankacid,$branchid,$
 
 	$response = array();
 	if($lastid > 0){
+
+		$sql_brkrid = "Select BrkrId From ".$dbPrefix.".tbasrapos WHERE POSId = '$posid' AND WefDt <= '$trandate' Order By WefDt Desc limit 1";
+		$brkrid = executeSingleSelect($sql_brkrid);
+
+		if($brkrid>0){
+
+			$sql_updateCashinhand = "Update ".$dbPrefix.".tbmcashinhand SET RcptAmt = RcptAmt - '$amount' WHERE EmpId = '$brkrid'";
+			$affectedrows_Cashinhand = executeUpdate($sql_updateCashinhand);
+
+			if($affectedrows_Cashinhand == 0){
+
+				$sql_insert = "INSERT INTO ".$dbPrefix.".tbmcashinhand(EmpId,RcptAmt) VALUES ('$brkrid','-$amount')";
+				$lastid = executeInsert($sql_insert);
+			}
+    	}
+
 		$response["success"] = 1;
 		$response["jrnlno"] = $jrnlno;
 		$response["message"] = 'Deposit Entry Successfully Posted';
