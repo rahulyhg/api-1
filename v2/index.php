@@ -636,7 +636,7 @@ function postDues(){
 	$jrno = executeSingleSelect($sql_jrnlno);
 
 	if (isset($jrno)){
-		$sql_updateCurId = "update ".$dbPrefix_curr.".`tbxcuryymmno` set curid = curid+1";
+		$sql_updateCurId = "update ".$dbPrefix_curr.".`tbxcuryymmno` set curid = curid+1 WHERE fieldnm = 'DEALRCPT' AND mm = MONTH(NOW()) AND yy = YEAR(NOW())";
 		$affectedrows_CurId = executeUpdate($sql_updateCurId);
 	}
 	else{
@@ -648,7 +648,7 @@ function postDues(){
 			$jrno = executeSingleSelect($sql_jrnlno);
 
 			if (isset($jrno)){
-				$sql_updateCurId = "update ".$dbPrefix_curr.".`tbxcuryymmno` set curid = curid+1";
+				$sql_updateCurId = "update ".$dbPrefix_curr.".`tbxcuryymmno` set curid = curid+1 WHERE fieldnm = 'DEALRCPT' AND mm = MONTH(NOW()) AND yy = YEAR(NOW())";
 				$affectedrows_CurId = executeUpdate($sql_updateCurId);
 			}
 		}
@@ -826,7 +826,7 @@ function postBankDeposit(){
 		$jrno = executeSingleSelect($sql_jrnlno);
 
 		if (isset($jrno)){
-			$sql_updateCurId = "update ".$dbPrefix_curr.".`tbxcuryymmno` set curid = curid+1";
+			$sql_updateCurId = "update ".$dbPrefix_curr.".`tbxcuryymmno` set curid = curid+1 WHERE fieldnm = 'DEALPMNT' AND mm = MONTH(NOW()) AND yy = YEAR(NOW())";
 			$affectedrows_CurId = executeUpdate($sql_updateCurId);
 		}
 
@@ -839,7 +839,7 @@ function postBankDeposit(){
 				$jrno = executeSingleSelect($sql_jrnlno);
 
 				if (isset($jrno)){
-					$sql_updateCurId = "update ".$dbPrefix_curr.".`tbxcuryymmno` set curid = curid+1";
+					$sql_updateCurId = "update ".$dbPrefix_curr.".`tbxcuryymmno` set curid = curid+1 WHERE fieldnm = 'DEALPMNT' AND mm = MONTH(NOW()) AND yy = YEAR(NOW())";
 					$affectedrows_CurId = executeUpdate($sql_updateCurId);
 				}
 			}
@@ -1685,24 +1685,24 @@ function postDepositEntry($tranno,$posid,$trandate,$bankid,$bankacid,$branchid,$
 	$sql_locktable = "LOCK TABLES ".$dbPrefix_curr.".`tbxcuryymmno` WRITE";
 	$lockid = executeQuery($sql_locktable);
 
-	$sql_jrnlno = "SELECT CONCAT(jrnlind,'-',SUBSTRING(yy, 3),mm,curid) AS jrno FROM ".$dbPrefix_curr.".`tbxcuryymmno` WHERE fieldnm = 'DEALPMNT' AND mm = MONTH(NOW()) AND yy = YEAR(NOW())";
+	$sql_jrnlno = "SELECT CONCAT(jrnlind,'-',SUBSTRING(yy, 3),mm,curid) AS jrno FROM ".$dbPrefix_curr.".`tbxcuryymmno` WHERE fieldnm = 'CASHDEPO' AND mm = MONTH(NOW()) AND yy = YEAR(NOW())";
 	$jrno = executeSingleSelect($sql_jrnlno);
 
 	if (isset($jrno)){
-		$sql_updateCurId = "update ".$dbPrefix_curr.".`tbxcuryymmno` set curid = curid+1";
+		$sql_updateCurId = "update ".$dbPrefix_curr.".`tbxcuryymmno` set curid = curid+1 WHERE fieldnm = 'CASHDEPO' AND mm = MONTH(NOW()) AND yy = YEAR(NOW())";
 		$affectedrows_CurId = executeUpdate($sql_updateCurId);
 	}
 
 	else{
-		$sql_insertcurno = "INSERT INTO ".$dbPrefix_curr.".`tbxcuryymmno`(`FieldNm`,`YY`,`MM`,`CurId`,`JrnlInd`) VALUES ('DEALPMNT',YEAR(NOW()),MONTH(NOW()),'1','P1')";
+		$sql_insertcurno = "INSERT INTO ".$dbPrefix_curr.".`tbxcuryymmno`(`FieldNm`,`YY`,`MM`,`CurId`,`JrnlInd`) VALUES ('CASHDEPO',YEAR(NOW()),MONTH(NOW()),'1','P1')";
 		$lastid_insertcurno = executeInsertQuery($sql_insertcurno);
 
 		if($lastid_insertcurno>0){
-			$sql_jrnlno = "SELECT CONCAT(jrnlind,'-',SUBSTRING(yy, 3),mm,curid) AS jrno FROM ".$dbPrefix_curr.".`tbxcuryymmno` WHERE fieldnm = 'DEALPMNT' AND mm = MONTH(NOW()) AND yy = YEAR(NOW())";
+			$sql_jrnlno = "SELECT CONCAT(jrnlind,'-',SUBSTRING(yy, 3),mm,curid) AS jrno FROM ".$dbPrefix_curr.".`tbxcuryymmno` WHERE fieldnm = 'CASHDEPO' AND mm = MONTH(NOW()) AND yy = YEAR(NOW())";
 			$jrno = executeSingleSelect($sql_jrnlno);
 
 			if (isset($jrno)){
-				$sql_updateCurId = "update ".$dbPrefix_curr.".`tbxcuryymmno` set curid = curid+1";
+				$sql_updateCurId = "update ".$dbPrefix_curr.".`tbxcuryymmno` set curid = curid+1 WHERE fieldnm = 'CASHDEPO' AND mm = MONTH(NOW()) AND yy = YEAR(NOW())";
 				$affectedrows_CurId = executeUpdate($sql_updateCurId);
 			}
 		}
@@ -1720,6 +1720,7 @@ function postDepositEntry($tranno,$posid,$trandate,$bankid,$bankacid,$branchid,$
 	$response = array();
 	if($lastid > 0){
 		$response["success"] = 1;
+		$response["jrnlno"] = $jrnlno;
 		$response["message"] = 'Deposit Entry Successfully Posted';
 	}
 	else{
@@ -2040,12 +2041,12 @@ function uploadDocuments(){
 
 				if($docs['row_count']>0){
 					$response["success"] = 1;
-		        	$response["message"] = 'document uploaded successfully!';
+		        	$response["message"] = 'Document successfully uploaded!';
 		        	$response["UploadedDocuments"] = $docs;
 				}
 				else{
 					$response["success"] = 0;
-		        	$response["message"] = 'Could not upload the document!';
+		        	$response["message"] = 'Failed to upload document!';
 		        }
 
 		   	 }
