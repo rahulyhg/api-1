@@ -41,7 +41,7 @@ $app->post('/customerlogin', 'customerlogin');  //Consumer App 02
 $app->get('/customerdealdetails/:dealid', 'getCustomerDealDetails');  //Consumer App 03
 
 $app->get('/accountbalance/:acid/:acxndt', 'getAcBalance');
-$app->get('/unreconciledepositentry/:acid', 'getUnreconcileDepositEntry');
+$app->get('/unreconciledepositentry/:posid', 'getUnreconcileDepositEntry');
 $app->get('/cashinhand/:sraid', 'getCashInHand');
 $app->get('/postdepositentry/:tranno/:posid/:trandate/:bankid/:bankacid/:branchid/:branchcode/:amount/:trantime/:usedlimit', 'postDepositEntry');
 
@@ -1610,49 +1610,54 @@ function getAcBalance($acid,$acxndt){
 }
 
 
-function getUnreconcileDepositEntry($acid){
-	$dbPrefix_curr = $_SESSION['DB_PREFIX_CURR'];
-	$dbPrefix = $_SESSION['DB_PREFIX'];
+function getUnreconcileDepositEntry($posid){
+    $dbPrefix_curr = $_SESSION['DB_PREFIX_CURR'];
+    $dbPrefix = $_SESSION['DB_PREFIX'];
 
-	$sql_select = "SELECT min(b.AcxnDt) as AcxnDt FROM ".$dbPrefix_curr.".`tbxacvoucher` AS a JOIN  ".$dbPrefix_curr.".`tbxacvoucher` AS b ON a.AcxnId=b.AcxnId  WHERE a.AcId = '$acid' AND b.AcVchTyp=3 AND b.AcId !='$acid' AND b.ReconInd != 3;";
-	$acxndt = executeSelect($sql_select);
+	$sql_select = "SELECT MIN(TranDate) as TranDate FROM ".$dbPrefix_curr.".tbxdealpmntjrnl p LEFT JOIN ".$dbPrefix_curr.".tbxAcVoucher AS v ON  p.VchrNo=v.AcVchNo AND AcVchTyp=3  AND v.AcxnSrNo=1  WHERE POSId='$posid' AND ( p.VchrNo IS NULL OR v.ReconInd !=3) ORDER BY TranDate;";
+    $trandt = executeSelect($sql_select);
 
-	if($acxndt['row_count']>0 && isset($acxndt['result'][0]['AcxnDt'])){
+    if($trandt['row_count']>0 && isset($trandt['result'][0]['TranDate'])){
 
-		$acxndate = $acxndt['result'][0]['AcxnDt'];
+        $trandate = $trandt['result'][0]['TranDate'];
 
-		$sql_unreconcileentry = "SELECT b.AcxnDt, b.bankShNm , bb.`BankBrnchNm` ,b.ReconInd , pj.Amount ,b.AcxnAmt  FROM ".$dbPrefix_curr.".`tbxacvoucher` AS a
-		JOIN ".$dbPrefix_curr.".`tbxacvoucher` AS b ON a.AcxnId=b.AcxnId
-		JOIN ".$dbPrefix.".`tbracvchtype` vt ON vt.AcVchTyp=b.AcVchTyp
-		LEFT JOIN ".$dbPrefix_curr.".`tbxdealpmntjrnl` pj ON pj.VchrNo = CONCAT(vt.AcVchTypShNm , '/' , b.AcVchNo)
-		JOIN ".$dbPrefix.".`tbasrcbnkaccnt` sa ON b.AcId=sa.AcId
-		JOIN ".$dbPrefix.".`tbmsourcebank` b ON sa.BankId=b.BankId
-		LEFT JOIN ".$dbPrefix.".`tbmsourcebankbrnch` bb ON bb.`BankBrnchId`= pj.BranchId
-		WHERE a.AcId = '$acid' AND b.AcVchTyp=3 AND b.AcId != '$acid' AND b.AcxnDt >= '$acxndate'";
-	}
-	else{
-		$sql_unreconcileentry = "SELECT b.AcxnDt, b.bankShNm , bb.`BankBrnchNm` ,b.ReconInd , pj.Amount ,b.AcxnAmt  FROM ".$dbPrefix_curr.".`tbxacvoucher` AS a
-		JOIN ".$dbPrefix_curr.".`tbxacvoucher` AS b ON a.AcxnId=b.AcxnId
-		JOIN ".$dbPrefix.".`tbracvchtype` vt ON vt.AcVchTyp=b.AcVchTyp
-		LEFT JOIN ".$dbPrefix_curr.".`tbxdealpmntjrnl` pj ON pj.VchrNo = CONCAT(vt.AcVchTypShNm , '/' , b.AcVchNo)
-		JOIN ".$dbPrefix.".`tbasrcbnkaccnt` sa ON b.AcId=sa.AcId
-		JOIN ".$dbPrefix.".`tbmsourcebank` b ON sa.BankId=b.BankId
-		LEFT JOIN ".$dbPrefix.".`tbmsourcebankbrnch` bb ON bb.`BankBrnchId`= pj.BranchId
-		WHERE a.AcId = '$acid' AND b.AcVchTyp=3 AND b.AcId != '$acid' limit 5";
-	}
-	$unreconcileentry = executeSelect($sql_unreconcileentry);
+        $sql_unreconcileentry = "SELECT p.TranDate, sa.bankShNm , bb.`BankBrnchNm` , (CASE WHEN p.CclFlg = -1 THEN 4 ELSE (CASE WHEN v.ReconInd IS NULL THEN 0 ELSE v.ReconInd END) END) ReconInd , p.BankDpstAmt , (CASE WHEN v.AcxnAmt IS NULL THEN p.Amount ELSE   v.AcxnAmt  END ) AS Amount FROM ".$dbPrefix_curr.".`tbxdealpmntjrnl` p LEFT JOIN ".$dbPrefix_curr.".tbxAcVoucher AS v
+        ON  p.VchrNo=v.AcVchNo AND AcVchTyp=3  AND v.AcxnSrNo=1
+        JOIN ".$dbPrefix.".tbmsourcebank sa ON sa.BankId=p.BankId
+        JOIN ".$dbPrefix.".tbmsourcebankbrnch bb ON bb.BankBrnchId= p.BranchId
+        WHERE POSId='$posid'  AND TranDate >= '$trandate' ORDER BY TranDate;";
 
-	$response = array();
-	if($unreconcileentry['row_count']>0){
-		$response["success"] = 1;
-	}
-	else{
-		$response = error_code(1049);
-		echo json_encode($response);
-		return;
-	}
-	$response["unreconciledepositentry"] = $unreconcileentry;
-	echo json_encode($response);
+        $rowcount = executeSelect($sql_unreconcileentry);
+
+        if($rowcount['row_count'] < 10){
+			print_a($rowcount['row_count']);
+			$sql_unreconcileentry = "SELECT p.TranDate, sa.bankShNm , bb.`BankBrnchNm` , (CASE WHEN p.CclFlg = -1 THEN 4 ELSE (CASE WHEN v.ReconInd IS NULL THEN 0 ELSE v.ReconInd END) END) ReconInd , p.BankDpstAmt , (CASE WHEN v.AcxnAmt IS NULL THEN p.Amount ELSE   v.AcxnAmt  END ) AS Amount FROM ".$dbPrefix_curr.".`tbxdealpmntjrnl` p LEFT JOIN ".$dbPrefix_curr.".tbxAcVoucher AS v
+			ON  p.VchrNo=v.AcVchNo AND AcVchTyp=3  AND v.AcxnSrNo=1
+			JOIN ".$dbPrefix.".tbmsourcebank sa ON sa.BankId=p.BankId
+			JOIN ".$dbPrefix.".tbmsourcebankbrnch bb ON bb.BankBrnchId= p.BranchId
+			WHERE POSId='$posid' ORDER BY TranDate DESC limit 10";
+        }
+    }
+    else{
+		$sql_unreconcileentry = "SELECT p.TranDate, sa.bankShNm , bb.`BankBrnchNm` , (CASE WHEN p.CclFlg = -1 THEN 4 ELSE (CASE WHEN v.ReconInd IS NULL THEN 0 ELSE v.ReconInd END) END) ReconInd , p.BankDpstAmt , (CASE WHEN v.AcxnAmt IS NULL THEN p.Amount ELSE   v.AcxnAmt  END ) AS Amount FROM ".$dbPrefix_curr.".`tbxdealpmntjrnl` p LEFT JOIN ".$dbPrefix_curr.".tbxAcVoucher AS v
+        ON  p.VchrNo=v.AcVchNo AND AcVchTyp=3  AND v.AcxnSrNo=1
+        JOIN ".$dbPrefix.".tbmsourcebank sa ON sa.BankId=p.BankId
+        JOIN ".$dbPrefix.".tbmsourcebankbrnch bb ON bb.BankBrnchId= p.BranchId
+        WHERE POSId='$posid' ORDER BY TranDate DESC limit 10";
+    }
+    $unreconcileentry = executeSelect($sql_unreconcileentry);
+
+    $response = array();
+    if($unreconcileentry['row_count']>0){
+        $response["success"] = 1;
+    }
+    else{
+        $response = error_code(1049);
+        echo json_encode($response);
+        return;
+    }
+    $response["unreconciledepositentry"] = $unreconcileentry;
+    echo json_encode($response);
 }
 
 
