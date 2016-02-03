@@ -1630,7 +1630,6 @@ function getUnreconcileDepositEntry($posid){
         $rowcount = executeSelect($sql_unreconcileentry);
 
         if($rowcount['row_count'] < 10){
-			print_a($rowcount['row_count']);
 			$sql_unreconcileentry = "SELECT p.TranDate, sa.bankShNm , bb.`BankBrnchNm` , (CASE WHEN p.CclFlg = -1 THEN 4 ELSE (CASE WHEN v.ReconInd IS NULL THEN 0 ELSE v.ReconInd END) END) ReconInd , p.BankDpstAmt , (CASE WHEN v.AcxnAmt IS NULL THEN p.Amount ELSE   v.AcxnAmt  END ) AS Amount FROM ".$dbPrefix_curr.".`tbxdealpmntjrnl` p LEFT JOIN ".$dbPrefix_curr.".tbxAcVoucher AS v
 			ON  p.VchrNo=v.AcVchNo AND AcVchTyp=3  AND v.AcxnSrNo=1
 			JOIN ".$dbPrefix.".tbmsourcebank sa ON sa.BankId=p.BankId
