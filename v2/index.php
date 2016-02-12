@@ -449,7 +449,7 @@ function searchDeals($empid,$query,$page){
 		return;
 	}
 	else{
-	 	$q = "SELECT sql_calc_found_rows d.dealid, d.dealno, tcase(d.dealnm) as name, tcase(d.city) as city, tcase(d.area) as area, trim(concat(d.add1, ' ', d.add2, ' ', d.area, ' ', d.tahasil)) as address, round(fr.OdDueAmt) as overdue, round(fr.DueAmt) as total_due, fr.rgid as bucket, fr.Mobile as mobile, fr.GuarantorMobile as guarantor_mobile, tcase(fr.model) as vehicle_model, concat(fr.dd,'-',fr.mm,'-',fr.yy) as assigned_on, DATE_FORMAT(fr.CallerFollowupDt,'%d-%m-%Y') as caller_followup_dt,DATE_FORMAT(fr.SRAFollowupDt,'%d-%m-%Y') as sra_followup_dt from ".$dbPrefix.".tbmdeal d Left JOIN ".$dbPrefix_curr.".tbxfieldrcvry fr ON d.dealid = fr.dealid and fr.mm = ".date('n')."";
+	 	$q = "SELECT sql_calc_found_rows d.dealid, d.dealno, tcase(d.dealnm) as name, tcase(d.city) as city, tcase(d.area) as area, trim(concat(IFNULL(d.add1,''), ' ', IFNULL(d.add2,''), ' ', IFNULL(d.area,''), ' ', IFNULL(d.tahasil,''))) as address, round(fr.OdDueAmt) as overdue, round(fr.DueAmt) as total_due, fr.rgid as bucket, fr.Mobile as mobile, fr.GuarantorMobile as guarantor_mobile, tcase(fr.model) as vehicle_model, concat(fr.dd,'-',fr.mm,'-',fr.yy) as assigned_on, DATE_FORMAT(fr.CallerFollowupDt,'%d-%m-%Y') as caller_followup_dt,DATE_FORMAT(fr.SRAFollowupDt,'%d-%m-%Y') as sra_followup_dt from ".$dbPrefix.".tbmdeal d Left JOIN ".$dbPrefix_curr.".tbxfieldrcvry fr ON d.dealid = fr.dealid and fr.mm = ".date('n')."";
 
 		if(is_numeric($query)){
 			if(strlen($query) < 6)
@@ -632,7 +632,7 @@ function postDues(){
 	$sql_locktable = "LOCK TABLES ".$dbPrefix_curr.".`tbxcuryymmno` WRITE";
 	$lockid = executeQuery($sql_locktable);
 
-	$sql_jrnlno = "SELECT CONCAT(jrnlind,'-',SUBSTRING(yy, 3),mm,curid) AS jrno FROM ".$dbPrefix_curr.".`tbxcuryymmno` WHERE fieldnm = 'DEALRCPT' AND mm = MONTH(NOW()) AND yy = YEAR(NOW())";
+	$sql_jrnlno = "SELECT CONCAT(jrnlind,'-',SUBSTRING(yy, 3),lpad(mm,2,0),lpad(curid,5,0)) AS jrno FROM ".$dbPrefix_curr.".`tbxcuryymmno` WHERE fieldnm = 'DEALRCPT' AND mm = MONTH(NOW()) AND yy = YEAR(NOW())";
 	$jrno = executeSingleSelect($sql_jrnlno);
 
 	if (isset($jrno)){
@@ -644,7 +644,7 @@ function postDues(){
 		$lastid_insertcurno = executeInsertQuery($sql_insertcurno);
 
 		if($lastid_insertcurno>0){
-			$sql_jrnlno = "SELECT CONCAT(jrnlind,'-',SUBSTRING(yy, 3),mm,curid) AS jrno FROM ".$dbPrefix_curr.".`tbxcuryymmno` WHERE fieldnm = 'DEALRCPT' AND mm = MONTH(NOW()) AND yy = YEAR(NOW())";
+			$sql_jrnlno = "SELECT CONCAT(jrnlind,'-',SUBSTRING(yy, 3),lpad(mm,2,0),lpad(curid,5,0)) AS jrno FROM ".$dbPrefix_curr.".`tbxcuryymmno` WHERE fieldnm = 'DEALRCPT' AND mm = MONTH(NOW()) AND yy = YEAR(NOW())";
 			$jrno = executeSingleSelect($sql_jrnlno);
 
 			if (isset($jrno)){
@@ -822,7 +822,7 @@ function postBankDeposit(){
 	$sql_locktable = "LOCK TABLES ".$dbPrefix_curr.".`tbxcuryymmno` WRITE";
 		$lockid = executeQuery($sql_locktable);
 
-		$sql_jrnlno = "SELECT CONCAT(jrnlind,'-',SUBSTRING(yy, 3),mm,curid) AS jrno FROM ".$dbPrefix_curr.".`tbxcuryymmno` WHERE fieldnm = 'DEALPMNT' AND mm = MONTH(NOW()) AND yy = YEAR(NOW())";
+		$sql_jrnlno = "SELECT CONCAT(jrnlind,'-',SUBSTRING(yy, 3),lpad(mm,2,0),lpad(curid,5,0)) AS jrno FROM ".$dbPrefix_curr.".`tbxcuryymmno` WHERE fieldnm = 'DEALPMNT' AND mm = MONTH(NOW()) AND yy = YEAR(NOW())";
 		$jrno = executeSingleSelect($sql_jrnlno);
 
 		if (isset($jrno)){
@@ -835,7 +835,7 @@ function postBankDeposit(){
 			$lastid_insertcurno = executeInsertQuery($sql_insertcurno);
 
 			if($lastid_insertcurno>0){
-				$sql_jrnlno = "SELECT CONCAT(jrnlind,'-',SUBSTRING(yy, 3),mm,curid) AS jrno FROM ".$dbPrefix_curr.".`tbxcuryymmno` WHERE fieldnm = 'DEALPMNT' AND mm = MONTH(NOW()) AND yy = YEAR(NOW())";
+				$sql_jrnlno = "SELECT CONCAT(jrnlind,'-',SUBSTRING(yy, 3),lpad(mm,2,0),lpad(curid,5,0)) AS jrno FROM ".$dbPrefix_curr.".`tbxcuryymmno` WHERE fieldnm = 'DEALPMNT' AND mm = MONTH(NOW()) AND yy = YEAR(NOW())";
 				$jrno = executeSingleSelect($sql_jrnlno);
 
 				if (isset($jrno)){
