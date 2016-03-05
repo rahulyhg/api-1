@@ -573,12 +573,15 @@ function getDues($dealid, $foreclosure){
 		return;
 	}
 
-	$sql_dues = "SELECT dctyp as type,round(ChrgsApplied-ChrgsRcvd) as amount FROM ".$dbPrefix.".tbmdealchrgs WHERE DealId=$dealid AND DcTyp NOT IN (101,102,111) AND ChrgsApplied > ChrgsRcvd GROUP BY Dctyp";
+	$sql_dues = "SELECT dctyp as type,round(ChrgsApplied-ChrgsRcvd) as amount,round(MinChrgs) as min_amount FROM ".$dbPrefix.".tbmdealchrgs WHERE DealId=$dealid AND DcTyp NOT IN (101,102,111) AND ChrgsApplied > ChrgsRcvd GROUP BY Dctyp";
 	$dues = executeSelect($sql_dues);
 
 	$sql_od1 = "select sum(dueamt+collectionchrgs) as charges_applied from ".$dbPrefix.".tbmduelist where duedt <= '$current_date' and dealid = $dealid";
 	$sql_od2 = "select sum(chrgsrcvd) from ".$dbPrefix.".tbmdealchrgs where dctyp IN (101,102,111) and dealid=$dealid";
 	$od = executeSingleSelect($sql_od1)-executeSingleSelect($sql_od2);
+
+	$sql_od_minamt = "select round(sum(MinChrgs)) from ".$dbPrefix.".tbmdealchrgs where dctyp IN (101,102,111) and dealid=$dealid";
+	$od_minamt = executeSingleSelect($sql_od_minamt);
 
 	if($foreclosure == 1){
 		$foreclosure_amt = foreclosure($dealid);
@@ -586,12 +589,14 @@ function getDues($dealid, $foreclosure){
 		$dues['result'][$index]= array();
 		$dues['result'][$index]["type"]='101';
 		$dues['result'][$index]["amount"]=strval($od+$foreclosure_amt);
+		$dues['result'][$index]["min_amount"]=$od_minamt;
 	}
 	else{
 		$index=count($dues['result']);
 		$dues['result'][$index]= array();
 		$dues['result'][$index]["type"]='101';
 		$dues['result'][$index]["amount"]=strval($od);
+		$dues['result'][$index]["min_amount"]=$od_minamt;
 	}
 
 	$response = array();
@@ -632,23 +637,23 @@ function postDues(){
 	$sql_locktable = "LOCK TABLES ".$dbPrefix_curr.".`tbxcuryymmno` WRITE";
 	$lockid = executeQuery($sql_locktable);
 
-	$sql_jrnlno = "SELECT CONCAT(jrnlind,'-',SUBSTRING(yy, 3),lpad(mm,2,0),lpad(curid,5,0)) AS jrno FROM ".$dbPrefix_curr.".`tbxcuryymmno` WHERE fieldnm = 'DEALRCPT' AND mm = MONTH(NOW()) AND yy = YEAR(NOW())";
+	$sql_jrnlno = "SELECT CONCAT(jrnlind,'-',SUBSTRING(yy, 3),lpad(mm,2,0),lpad(curid,5,0)) AS jrno FROM ".$dbPrefix_curr.".`tbxcuryymmno` WHERE fieldnm = 'CASHRCPT' AND mm = MONTH(NOW()) AND yy = YEAR(NOW())";
 	$jrno = executeSingleSelect($sql_jrnlno);
 
 	if (isset($jrno)){
-		$sql_updateCurId = "update ".$dbPrefix_curr.".`tbxcuryymmno` set curid = curid+1 WHERE fieldnm = 'DEALRCPT' AND mm = MONTH(NOW()) AND yy = YEAR(NOW())";
+		$sql_updateCurId = "update ".$dbPrefix_curr.".`tbxcuryymmno` set curid = curid+1 WHERE fieldnm = 'CASHRCPT' AND mm = MONTH(NOW()) AND yy = YEAR(NOW())";
 		$affectedrows_CurId = executeUpdate($sql_updateCurId);
 	}
 	else{
-		$sql_insertcurno = "INSERT INTO ".$dbPrefix_curr.".`tbxcuryymmno`(`FieldNm`,`YY`,`MM`,`CurId`,`JrnlInd`) VALUES ('DEALRCPT',YEAR(NOW()),MONTH(NOW()),'1','J1')";
+		$sql_insertcurno = "INSERT INTO ".$dbPrefix_curr.".`tbxcuryymmno`(`FieldNm`,`YY`,`MM`,`CurId`,`JrnlInd`) VALUES ('CASHRCPT',YEAR(NOW()),MONTH(NOW()),'1','J1')";
 		$lastid_insertcurno = executeInsertQuery($sql_insertcurno);
 
 		if($lastid_insertcurno>0){
-			$sql_jrnlno = "SELECT CONCAT(jrnlind,'-',SUBSTRING(yy, 3),lpad(mm,2,0),lpad(curid,5,0)) AS jrno FROM ".$dbPrefix_curr.".`tbxcuryymmno` WHERE fieldnm = 'DEALRCPT' AND mm = MONTH(NOW()) AND yy = YEAR(NOW())";
+			$sql_jrnlno = "SELECT CONCAT(jrnlind,'-',SUBSTRING(yy, 3),lpad(mm,2,0),lpad(curid,5,0)) AS jrno FROM ".$dbPrefix_curr.".`tbxcuryymmno` WHERE fieldnm = 'CASHRCPT' AND mm = MONTH(NOW()) AND yy = YEAR(NOW())";
 			$jrno = executeSingleSelect($sql_jrnlno);
 
 			if (isset($jrno)){
-				$sql_updateCurId = "update ".$dbPrefix_curr.".`tbxcuryymmno` set curid = curid+1 WHERE fieldnm = 'DEALRCPT' AND mm = MONTH(NOW()) AND yy = YEAR(NOW())";
+				$sql_updateCurId = "update ".$dbPrefix_curr.".`tbxcuryymmno` set curid = curid+1 WHERE fieldnm = 'CASHRCPT' AND mm = MONTH(NOW()) AND yy = YEAR(NOW())";
 				$affectedrows_CurId = executeUpdate($sql_updateCurId);
 			}
 		}
