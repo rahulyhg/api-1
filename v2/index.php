@@ -617,6 +617,7 @@ function getDues($dealid, $foreclosure){
 //14
 function postDues(){
 	$dbPrefix_curr = $_SESSION['DB_PREFIX_CURR'];
+	$dbPrefix = $_SESSION['DB_PREFIX'];
 	$request = Slim::getInstance()->request();
 
 	//$jrnlno = 'J-0000';
@@ -633,6 +634,9 @@ function postDues(){
 	$rcptmode = $request->params('rcptmode');
 	$totamt = $request->params('totamt');
 	$dctyp_amt = $request->params('dctyp_amt');
+	$dealid = $request->params('dealid');
+	$dealname = $request->params('dealname');
+	$foreclosure = $request->params('foreclosure');
 
 	$sql_locktable = "LOCK TABLES ".$dbPrefix_curr.".`tbxcuryymmno` WRITE";
 	$lockid = executeQuery($sql_locktable);
@@ -681,8 +685,18 @@ function postDues(){
 
 			$sql1= "INSERT INTO ".$dbPrefix_curr.".tbxrcptjrnldtl (JrnlNo,DCTyp,RecdAmt) VALUES ('$jrnlno', '$dctyp', '$dctypamt')";
 			$lastinsertid = executeInsert($sql1);
+
+			$sql_update_mincharges = "update ".$dbPrefix.".tbmdealchrgs set MinChrgs = '0' where DCTyp = $dctyp AND dealid = '$dealid'";
+			$affectedrows_mincharges = executeUpdate($sql_update_mincharges);
+
 		}
 		if ($lastinsertid > 0){
+
+			if($foreclosure == 1){
+				$sql_insert_foreclosure= "INSERT INTO ".$dbPrefix.".tbmdealnocjrnl(TranDt,JrnlNo,DealId,DealNo,DealNm,UpdSts) VALUES(NOW(),CONCAT('R-','$dealid'),'$dealid','$dealno','$dealname','0')";
+				$lastinsertid_foreclosure = executeInsert($sql_insert_foreclosure);
+			}
+
 			$response["success"] = 1;
 			$response["message"] = 'Dues successfully posted';
 		}
