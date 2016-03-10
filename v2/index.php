@@ -44,6 +44,7 @@ $app->get('/accountbalance/:acid/:acxndt', 'getAcBalance');
 $app->get('/unreconciledepositentry/:posid', 'getUnreconcileDepositEntry');
 $app->get('/cashinhand/:sraid', 'getCashInHand');
 $app->get('/postdepositentry/:tranno/:posid/:trandate/:bankid/:bankacid/:branchid/:branchcode/:amount/:trantime/:usedlimit', 'postDepositEntry');
+$app->post('/postdepositentry', 'post_DepositEntry');
 
 $app->get('/proposaldata/:imei', 'getProposaldata');
 $app->get('/newproposal/:salesmanid/:brkrid/:bankid/:prslname', 'postNewProposal');
@@ -102,7 +103,11 @@ function register($imei){
 		return;
 	}
 	//Replace e.oldid with e.id in following query.
-	$sql = "select e.oldid as empid,tcase(e.name) as name,d.apppin as pin,e.mobile,e.email,e.photourl as photo_url,e.department,e.designation,e.role,tcase(e.centre) as centre,e.walletlimit as wallet_limit,d.printerid as printer_id,d.appversion as app_version,d.admindsn as admin_dsn,d.serviceurl as service_url from ".$dbPrefix.".tbmemployee e join ".$dbPrefix.".tbmdevices d on e.id = d.empid and d.active=2 where d.imei = '$imei' and e.active=2";
+	$sql = "select e.oldid as empid,p.posid,tcase(e.name) as name,d.apppin as pin,e.mobile,e.email,e.photourl as photo_url,e.department,e.designation,e.role,tcase(e.centre) as centre,e.walletlimit as wallet_limit,d.printerid as printer_id,d.appversion as app_version,d.admindsn as admin_dsn,d.serviceurl as service_url
+	from ".$dbPrefix.".tbmemployee e
+	join ".$dbPrefix.".tbmdevices d on e.id = d.empid and d.active=2
+	LEFT JOIN ".$dbPrefix.".tbasrapos p ON e.oldid = p.brkrid AND p.active=2
+	where d.imei = '$imei' and e.active=2";
 
 	$emp = executeSelect($sql);
 
@@ -168,7 +173,7 @@ function getStaticData($empid){
 
 	foreach($bank['result'] as $i=> $static){
 		$bankid = $static['bankid'];
-		$sql_branchnm = "select sql_calc_found_rows distinct(bb.BankBrnchId) as branchid,bb.BankBrnchCd as branchcode,bb.BankBrnchNm as branch,bb.city from ".$dbPrefix.".tbmsourcebankbrnch bb join ".$dbPrefix.".tbaposbankbranch pb on bb.BankBrnchId = pb.branchid where bb.bankid=$bankid and pb.empid = $empid";
+		$sql_branchnm = "select sql_calc_found_rows distinct(bb.BankBrnchId) as branchid,bb.BankBrnchCd as branchcode,bb.BankBrnchNm as branch, trim(concat(IFNULL(bb.add1,''), ' ', IFNULL(bb.add2,''), ' ', IFNULL(bb.city,''))) as address, bb.city from ".$dbPrefix.".tbmsourcebankbrnch bb join ".$dbPrefix.".tbaposbankbranch pb on bb.BankBrnchId = pb.branchid where bb.bankid=$bankid and pb.empid = $empid";
 		$branchnm = executeSelect($sql_branchnm);
 		$bank['result'][$i]['branchname'] = $branchnm;
  	}
@@ -203,7 +208,7 @@ function getStaticData($empid){
    	$dctype[1]["type"]='102';
    	$dctype[1]["name"]='Clearing';
    	$dctype[2]["type"]='103';
-   	$dctype[2]["name"]='CB';
+   	$dctype[2]["name"]='Bouncing';
    	$dctype[3]["type"]='104';
    	$dctype[3]["name"]='Penalty';
    	$dctype[4]["type"]='105';
@@ -211,7 +216,7 @@ function getStaticData($empid){
    	$dctype[5]["type"]='107';
    	$dctype[5]["name"]='Other';
    	$dctype[6]["type"]='111';
-   	$dctype[6]["name"]='CC';
+   	$dctype[6]["name"]='Collection Charges';
 	$dc["row_count"]=count($dctype);
 	$dc["found_rows"]=count($dctype);
 	$dc['result']=$dctype;
@@ -1684,14 +1689,25 @@ function getCashInHand($sraid){
 
 	$response = array();
     $rcptamt = 0;
+    $limit = 0;
 
-    $sql = "SELECT rcptamt FROM ".$dbPrefix.".tbmcashinhand WHERE empid = '$sraid'";
+    //$sql = "SELECT rcptamt FROM ".$dbPrefix.".tbmcashinhand WHERE empid = '$sraid'";
+    //$result = executeSelect($sql);
+
+    $sql = "SELECT c.rcptamt, e.DpstAmtPercent, e.Walletlimit
+    FROM ".$dbPrefix.".tbmemployee e
+    LEFT JOIN ".$dbPrefix.".tbmcashinhand c ON c.empid = e.oldid  AND e.active=2 WHERE e.Oldid = '$sraid'";
     $result = executeSelect($sql);
+
 
     if($result['row_count']>0){
 		$rcptamt = $result['result'][0]['rcptamt'];
+		$dpstamtpercent = $result['result'][0]['DpstAmtPercent'];
+		$limit = $result['result'][0]['Walletlimit'];
 		$response["success"] = 1;
         $response["rcptamt"] = $rcptamt;
+        $response["dpstamtpercent"] = $dpstamtpercent;
+        $response["walletlimit"] = $limit;
 	}
     else{
         $response = error_code(1050);
@@ -1770,6 +1786,96 @@ function postDepositEntry($tranno,$posid,$trandate,$bankid,$bankacid,$branchid,$
 	}
 	echo json_encode($response);
 }
+
+
+
+
+function post_DepositEntry(){
+	$dbPrefix_curr = $_SESSION['DB_PREFIX_CURR'];
+	$dbPrefix = $_SESSION['DB_PREFIX'];
+	$request = Slim::getInstance()->request();
+
+
+	$tranno = $request->params('tranno');
+	$posid = $request->params('posid');
+	$trandate = $request->params('trandate');
+	$bankid = $request->params('bankid');
+	$bankacid = $request->params('bankacid');
+	$branchid = $request->params('branchid');
+	$branchcode = $request->params('branchcode');
+	$amount = $request->params('amount');
+	$trantime = $request->params('trantime');
+	$usedlimit = $request->params('usedlimit');
+
+
+
+	$sql_locktable = "LOCK TABLES ".$dbPrefix_curr.".`tbxcuryymmno` WRITE";
+	$lockid = executeQuery($sql_locktable);
+
+	$sql_jrnlno = "SELECT CONCAT(jrnlind,'-',SUBSTRING(yy, 3),mm,curid) AS jrno FROM ".$dbPrefix_curr.".`tbxcuryymmno` WHERE fieldnm = 'CASHDEPO' AND mm = MONTH(NOW()) AND yy = YEAR(NOW())";
+	$jrno = executeSingleSelect($sql_jrnlno);
+
+	if (isset($jrno)){
+		$sql_updateCurId = "update ".$dbPrefix_curr.".`tbxcuryymmno` set curid = curid+1 WHERE fieldnm = 'CASHDEPO' AND mm = MONTH(NOW()) AND yy = YEAR(NOW())";
+		$affectedrows_CurId = executeUpdate($sql_updateCurId);
+	}
+
+	else{
+		$sql_insertcurno = "INSERT INTO ".$dbPrefix_curr.".`tbxcuryymmno`(`FieldNm`,`YY`,`MM`,`CurId`,`JrnlInd`) VALUES ('CASHDEPO',YEAR(NOW()),MONTH(NOW()),'1','P1')";
+		$lastid_insertcurno = executeInsertQuery($sql_insertcurno);
+
+		if($lastid_insertcurno>0){
+			$sql_jrnlno = "SELECT CONCAT(jrnlind,'-',SUBSTRING(yy, 3),mm,curid) AS jrno FROM ".$dbPrefix_curr.".`tbxcuryymmno` WHERE fieldnm = 'CASHDEPO' AND mm = MONTH(NOW()) AND yy = YEAR(NOW())";
+			$jrno = executeSingleSelect($sql_jrnlno);
+
+			if (isset($jrno)){
+				$sql_updateCurId = "update ".$dbPrefix_curr.".`tbxcuryymmno` set curid = curid+1 WHERE fieldnm = 'CASHDEPO' AND mm = MONTH(NOW()) AND yy = YEAR(NOW())";
+				$affectedrows_CurId = executeUpdate($sql_updateCurId);
+			}
+		}
+	}
+
+	$sql_unlocktables = "UNLOCK TABLES";
+	$unlockid = executeQuery($sql_unlocktables);
+	if($unlockid >0){
+		$jrnlno = $jrno;
+	}
+
+	$sql = "INSERT INTO ".$dbPrefix_curr.".tbxdealpmntjrnl (JrnlNo,TranNo,POSId,TranDate,BankId,BankAcId,BranchId,BranchCode,Amount,TranTime,UsedLimit) VALUES ('$jrnlno', '$tranno', '$posid', '$trandate', '$bankid', '$bankacid', '$branchid', '$branchcode', '$amount', '$trantime', '$usedlimit')";
+	$lastid = executeInsert($sql);
+
+	$response = array();
+	if($lastid > 0){
+
+		$sql_brkrid = "Select BrkrId From ".$dbPrefix.".tbasrapos WHERE POSId = '$posid' AND WefDt <= '$trandate' Order By WefDt Desc limit 1";
+		$brkrid = executeSingleSelect($sql_brkrid);
+
+		if($brkrid>0){
+
+			$sql_updateCashinhand = "Update ".$dbPrefix.".tbmcashinhand SET RcptAmt = RcptAmt - '$amount' WHERE EmpId = '$brkrid'";
+			$affectedrows_Cashinhand = executeUpdate($sql_updateCashinhand);
+
+			if($affectedrows_Cashinhand == 0){
+
+				$sql_insert = "INSERT INTO ".$dbPrefix.".tbmcashinhand(EmpId,RcptAmt) VALUES ('$brkrid','-$amount')";
+				$lastid = executeInsert($sql_insert);
+			}
+    	}
+
+		$response["success"] = 1;
+		$response["jrnlno"] = $jrnlno;
+		$response["message"] = 'Deposit Entry Successfully Posted';
+	}
+	else{
+		$response = error_code(1051);
+		echo json_encode($response);
+		return;
+	}
+	echo json_encode($response);
+}
+
+
+
 
 
 
