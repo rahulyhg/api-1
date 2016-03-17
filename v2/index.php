@@ -1695,13 +1695,16 @@ function getCashInHand($sraid){
 
 	$response = array();
     $rcptamt = 0;
+    $dpstamtpercent = 0;
     $limit = 0;
+    $printerid = 0;
 
     //$sql = "SELECT rcptamt FROM ".$dbPrefix.".tbmcashinhand WHERE empid = '$sraid'";
     //$result = executeSelect($sql);
 
-    $sql = "SELECT c.rcptamt, e.DpstAmtPercent, e.Walletlimit
+    $sql = "SELECT c.rcptamt, e.DpstAmtPercent, e.Walletlimit, d.printerid
     FROM ".$dbPrefix.".tbmemployee e
+    LEFT JOIN ".$dbPrefix.".tbmdevices d ON e.id = d.empid
     LEFT JOIN ".$dbPrefix.".tbmcashinhand c ON c.empid = e.oldid  AND e.active=2 WHERE e.Oldid = '$sraid'";
     $result = executeSelect($sql);
 
@@ -1710,10 +1713,12 @@ function getCashInHand($sraid){
 		$rcptamt = $result['result'][0]['rcptamt'];
 		$dpstamtpercent = $result['result'][0]['DpstAmtPercent'];
 		$limit = $result['result'][0]['Walletlimit'];
+		$printerid = $result['result'][0]['printerid'];
 		$response["success"] = 1;
         $response["rcptamt"] = $rcptamt;
         $response["dpstamtpercent"] = $dpstamtpercent;
         $response["walletlimit"] = $limit;
+        $response["printerid"] = $printerid;
 	}
     else{
         $response = error_code(1050);
