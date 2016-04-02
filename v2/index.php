@@ -46,6 +46,8 @@ $app->get('/cashinhand/:sraid', 'getCashInHand');
 $app->get('/postdepositentry/:tranno/:posid/:trandate/:bankid/:bankacid/:branchid/:branchcode/:amount/:trantime/:usedlimit', 'postDepositEntry');
 $app->post('/postdepositentry', 'post_DepositEntry');
 
+$app->get('/verifyproposal/:proposalno', 'verifyProposal');
+
 $app->get('/proposaldata/:imei', 'getProposaldata');
 $app->get('/newproposal/:salesmanid/:brkrid/:bankid/:prslname', 'postNewProposal');
 $app->post('/updateproposal', 'updateProposal');
@@ -295,7 +297,7 @@ function getDashboards($empid){
 	//$sraid = $_SESSION['userid'];
 	$sraid = $empid;
 
-	$sql = "SELECT f.yy, f.mm, f.sraid AS empid, NULL AS empname, SUM(d.total) AS collection, SUM(d.OD) AS od, SUM(d.Penalty) AS penalty, SUM(d.CB) AS bouncing, SUM(d.Other) AS others,
+	$sql = "SELECT * FROM (SELECT f.yy, f.mm, f.sraid AS empid, NULL AS empname, SUM(d.total) AS collection, SUM(d.OD) AS od, SUM(d.Penalty) AS penalty, SUM(d.CB) AS bouncing, SUM(d.Other) AS others,
 	SUM(CASE WHEN f.dd = 1 THEN 1 ELSE 0 END) AS assigned_fd, SUM(CASE WHEN f.dd = 1 AND d.dealid IS NOT NULL THEN 1 ELSE 0 END) AS recovered_fd,
 	SUM(CASE WHEN f.dd != 1 THEN 1 ELSE 0 END) AS assigned_dm, SUM(CASE WHEN f.dd != 1 AND d.dealid IS NOT NULL THEN 1 ELSE 0 END) AS recovered_dm, COUNT(f.dealid) AS assinged, COUNT(d.dealid) AS recovered,
 	SUM(CASE WHEN f.rgid = 1 THEN 1 ELSE 0 END) AS assigned_b1, SUM(CASE WHEN f.rgid =1 AND d.dealid IS NOT NULL THEN 1 ELSE 0 END) AS recovered_b1,
@@ -312,7 +314,27 @@ function getDashboards($empid){
 	SUM(CASE WHEN rd.dctyp > 104 AND rd.dctyp < 111 THEN rd.rcptamt ELSE 0 END) AS Other
 	FROM ".$dbPrefix_curr.".tbxdealrcpt r JOIN ".$dbPrefix_curr.".tbxdealrcptdtl rd ON r.rcptid = rd.rcptid AND r.cclflg = 0 AND r.cbflg = 0 AND r.rcptpaymode = 1
 	GROUP BY MONTH(rcptdt), dealid) d ON f.dealid = d.dealid AND f.mm = d.mm
- 	WHERE f.sraid = $sraid GROUP BY f.mm ORDER BY yy DESC, mm DESC LIMIT 0,6";
+ 	WHERE f.sraid = $sraid GROUP BY f.mm
+ 	UNION
+ 	SELECT f.yy, f.mm, f.sraid AS empid, NULL AS empname, SUM(d.total) AS collection, SUM(d.OD) AS od, SUM(d.Penalty) AS penalty, SUM(d.CB) AS bouncing, SUM(d.Other) AS others,
+	SUM(CASE WHEN f.dd = 1 THEN 1 ELSE 0 END) AS assigned_fd, SUM(CASE WHEN f.dd = 1 AND d.dealid IS NOT NULL THEN 1 ELSE 0 END) AS recovered_fd,
+	SUM(CASE WHEN f.dd != 1 THEN 1 ELSE 0 END) AS assigned_dm, SUM(CASE WHEN f.dd != 1 AND d.dealid IS NOT NULL THEN 1 ELSE 0 END) AS recovered_dm, COUNT(f.dealid) AS assinged, COUNT(d.dealid) AS recovered,
+	SUM(CASE WHEN f.rgid = 1 THEN 1 ELSE 0 END) AS assigned_b1, SUM(CASE WHEN f.rgid =1 AND d.dealid IS NOT NULL THEN 1 ELSE 0 END) AS recovered_b1,
+	SUM(CASE WHEN f.rgid = 2 THEN 1 ELSE 0 END) AS assigned_b2, SUM(CASE WHEN f.rgid =2 AND d.dealid IS NOT NULL THEN 1 ELSE 0 END) AS recovered_b2,
+	SUM(CASE WHEN f.rgid = 3 THEN 1 ELSE 0 END) AS assigned_b3, SUM(CASE WHEN f.rgid =3 AND d.dealid IS NOT NULL THEN 1 ELSE 0 END) AS recovered_b3,
+	SUM(CASE WHEN f.rgid = 4 THEN 1 ELSE 0 END) AS assigned_b4, SUM(CASE WHEN f.rgid =4 AND d.dealid IS NOT NULL THEN 1 ELSE 0 END) AS recovered_b4,
+	SUM(CASE WHEN f.rgid = 5 THEN 1 ELSE 0 END) AS assigned_b5, SUM(CASE WHEN f.rgid =5 AND d.dealid IS NOT NULL THEN 1 ELSE 0 END) AS recovered_b5,
+	SUM(CASE WHEN f.rgid > 5 THEN 1 ELSE 0 END) AS assigned_b6, SUM(CASE WHEN f.rgid >5 AND d.dealid IS NOT NULL THEN 1 ELSE 0 END) AS recovered_b6, 0 AS target_fd
+	FROM ".$dbPrefix_last.".tbxfieldrcvry f LEFT JOIN
+	(SELECT MONTH(rcptdt) AS mm, r.dealid, SUM(rd.rcptamt) AS total,
+	SUM(CASE WHEN rd.dctyp IN (101,102,111) THEN rd.rcptamt ELSE 0 END) AS OD,
+	SUM(CASE WHEN rd.dctyp = 103 THEN rd.rcptamt ELSE 0 END) AS CB,
+	SUM(CASE WHEN rd.dctyp = 104 THEN rd.rcptamt ELSE 0 END) AS Penalty,
+	SUM(CASE WHEN rd.dctyp > 104 AND rd.dctyp < 111 THEN rd.rcptamt ELSE 0 END) AS Other
+	FROM ".$dbPrefix_last.".tbxdealrcpt r JOIN ".$dbPrefix_last.".tbxdealrcptdtl rd ON r.rcptid = rd.rcptid AND r.cclflg = 0 AND r.cbflg = 0 AND r.rcptpaymode = 1
+	GROUP BY MONTH(rcptdt), dealid) d ON f.dealid = d.dealid AND f.mm = d.mm
+ 	WHERE f.sraid = $sraid GROUP BY f.mm)t1
+ 	ORDER BY yy DESC, mm DESC LIMIT 0,6";
 
 	$dashboard = executeSelect($sql);
 
@@ -391,6 +413,9 @@ function getDepositHistory($empid){
 	select TranDate,BankId,BranchId,Amount from ".$dbPrefix_curr.".tbxdealpmntjrnl where POSId = '$posid '
 	UNION
 	select TranDate,BankId,BranchId,Amount from ".$dbPrefix_last.".tbxdealpmntjrnl where POSId = '$posid ')t1 ORDER BY TranDate DESC LIMIT 31";
+
+	print_a($sql);
+	die();
 
 	$deposithistory = executeSelect($sql);
 
@@ -1888,7 +1913,26 @@ function post_DepositEntry(){
 
 
 
+function verifyProposal($proposalno){
+	$dbPrefix = $_SESSION['DB_PREFIX'];
+	$dbPrefix_curr = $_SESSION['DB_PREFIX_CURR'];
 
+	//$sql_verifyproposal = "";
+	//$verifyproposal = executeSelect($sql_verifyproposal);
+
+	$response = array();
+	if($verifyproposal['row_count']>0){
+		$response["success"] = 1;
+	}
+	else{
+		$response = error_code(1052);
+		echo json_encode($response);
+		return;
+	}
+	$response["verifyproposal"] = $verifyproposal;
+	echo json_encode($response);
+
+}
 
 
 
