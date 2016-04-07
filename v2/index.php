@@ -414,8 +414,6 @@ function getDepositHistory($empid){
 	UNION
 	select TranDate,BankId,BranchId,Amount from ".$dbPrefix_last.".tbxdealpmntjrnl where POSId = '$posid ')t1 ORDER BY TranDate DESC LIMIT 31";
 
-	print_a($sql);
-	die();
 
 	$deposithistory = executeSelect($sql);
 
@@ -636,6 +634,7 @@ function getDues($dealid, $foreclosure){
 	}
 
 	$response = array();
+
 	if($dues['row_count']>0){
 		$response["success"] = 1;
 	}
@@ -644,6 +643,9 @@ function getDues($dealid, $foreclosure){
 		echo json_encode($response);
 		return;
 	}
+	//Reversing order of dues
+	$dues['result'] = array_reverse($dues['result']);
+
 	$response["dues"] = $dues;
 	$response["dues"]["row_count"]=count($dues);
 	$response["dues"]["found_rows"]=count($dues);
@@ -1668,37 +1670,44 @@ function getAcBalance($acid,$acxndt){
 function getUnreconcileDepositEntry($posid){
     $dbPrefix_curr = $_SESSION['DB_PREFIX_CURR'];
     $dbPrefix = $_SESSION['DB_PREFIX'];
+    $dbPrefix_last = $_SESSION['DB_PREFIX_LAST'];
 
-	$sql_select = "SELECT MIN(TranDate) as TranDate FROM ".$dbPrefix_curr.".tbxdealpmntjrnl p LEFT JOIN ".$dbPrefix_curr.".tbxAcVoucher AS v ON  p.VchrNo=v.AcVchNo AND AcVchTyp=3  AND v.AcxnSrNo=1  WHERE POSId='$posid' AND ( p.VchrNo IS NULL OR v.ReconInd !=3) ORDER BY TranDate;";
-    $trandt = executeSelect($sql_select);
+    $sql_q1 = "SELECT p.TranDate, sa.bankShNm, bb.`BankBrnchNm`, (CASE WHEN p.CclFlg = -1 THEN 4 ELSE (CASE WHEN v.ReconInd IS NULL THEN 0 ELSE v.ReconInd END) END) ReconInd, p.BankDpstAmt, (CASE WHEN v.AcxnAmt IS NULL THEN p.Amount ELSE v.AcxnAmt END) AS Amount
+    FROM ".$dbPrefix_curr.".`tbxdealpmntjrnl` p LEFT JOIN ".$dbPrefix_curr.".tbxAcVoucher AS v ON  p.VchrNo=v.AcVchNo AND AcVchTyp=3 AND v.AcxnSrNo = 1
+    JOIN ".$dbPrefix.".tbmsourcebank sa ON sa.BankId=p.BankId
+    JOIN ".$dbPrefix.".tbmsourcebankbrnch bb ON bb.BankBrnchId= p.BranchId
+    WHERE POSId='$posid'";
+
+    $sql_q2 = "SELECT p.TranDate, sa.bankShNm, bb.`BankBrnchNm`, (CASE WHEN p.CclFlg = -1 THEN 4 ELSE (CASE WHEN v.ReconInd IS NULL THEN 0 ELSE v.ReconInd END) END) ReconInd, p.BankDpstAmt, (CASE WHEN v.AcxnAmt IS NULL THEN p.Amount ELSE v.AcxnAmt END) AS Amount
+	FROM ".$dbPrefix_last.".`tbxdealpmntjrnl` p LEFT JOIN ".$dbPrefix_last.".tbxAcVoucher AS v ON  p.VchrNo=v.AcVchNo AND AcVchTyp=3 AND v.AcxnSrNo = 1
+	JOIN ".$dbPrefix.".tbmsourcebank sa ON sa.BankId=p.BankId
+	JOIN ".$dbPrefix.".tbmsourcebankbrnch bb ON bb.BankBrnchId= p.BranchId
+    WHERE POSId='$posid'";
+
+    $sql_trandt = "SELECT * FROM (SELECT MIN(TranDate) as TranDate FROM ".$dbPrefix_curr.".tbxdealpmntjrnl p LEFT JOIN ".$dbPrefix_curr.".tbxAcVoucher AS v ON  p.VchrNo=v.AcVchNo AND AcVchTyp=3  AND v.AcxnSrNo=1  WHERE POSId='$posid' AND ( p.VchrNo IS NULL OR v.ReconInd !=3)
+	UNION
+	SELECT MIN(TranDate) as TranDate FROM ".$dbPrefix_last.".tbxdealpmntjrnl p LEFT JOIN ".$dbPrefix_last.".tbxAcVoucher AS v ON  p.VchrNo=v.AcVchNo AND AcVchTyp=3  AND v.AcxnSrNo=1  WHERE POSId='$posid' AND ( p.VchrNo IS NULL OR v.ReconInd !=3))t1
+	ORDER BY TranDate";
+    $trandt = executeSelect($sql_trandt);
 
     if($trandt['row_count']>0 && isset($trandt['result'][0]['TranDate'])){
 
         $trandate = $trandt['result'][0]['TranDate'];
 
-        $sql_unreconcileentry = "SELECT p.TranDate, sa.bankShNm , bb.`BankBrnchNm` , (CASE WHEN p.CclFlg = -1 THEN 4 ELSE (CASE WHEN v.ReconInd IS NULL THEN 0 ELSE v.ReconInd END) END) ReconInd , p.BankDpstAmt , (CASE WHEN v.AcxnAmt IS NULL THEN p.Amount ELSE   v.AcxnAmt  END ) AS Amount FROM ".$dbPrefix_curr.".`tbxdealpmntjrnl` p LEFT JOIN ".$dbPrefix_curr.".tbxAcVoucher AS v
-        ON  p.VchrNo=v.AcVchNo AND AcVchTyp=3  AND v.AcxnSrNo=1
-        JOIN ".$dbPrefix.".tbmsourcebank sa ON sa.BankId=p.BankId
-        JOIN ".$dbPrefix.".tbmsourcebankbrnch bb ON bb.BankBrnchId= p.BranchId
-        WHERE POSId='$posid'  AND TranDate >= '$trandate' ORDER BY TranDate;";
+		$sql_unreconcileentry = "SELECT * FROM (".$sql_q1." AND TranDate >= '$trandate' UNION ".$sql_q2." AND TranDate >= '$trandate')t1 ORDER BY TranDate";
 
-        $rowcount = executeSelect($sql_unreconcileentry);
+		$rowcount = executeSelect($sql_unreconcileentry);
 
         if($rowcount['row_count'] < 10){
-			$sql_unreconcileentry = "SELECT p.TranDate, sa.bankShNm , bb.`BankBrnchNm` , (CASE WHEN p.CclFlg = -1 THEN 4 ELSE (CASE WHEN v.ReconInd IS NULL THEN 0 ELSE v.ReconInd END) END) ReconInd , p.BankDpstAmt , (CASE WHEN v.AcxnAmt IS NULL THEN p.Amount ELSE   v.AcxnAmt  END ) AS Amount FROM ".$dbPrefix_curr.".`tbxdealpmntjrnl` p LEFT JOIN ".$dbPrefix_curr.".tbxAcVoucher AS v
-			ON  p.VchrNo=v.AcVchNo AND AcVchTyp=3  AND v.AcxnSrNo=1
-			JOIN ".$dbPrefix.".tbmsourcebank sa ON sa.BankId=p.BankId
-			JOIN ".$dbPrefix.".tbmsourcebankbrnch bb ON bb.BankBrnchId= p.BranchId
-			WHERE POSId='$posid' ORDER BY TranDate DESC limit 10";
-        }
+
+			$sql_unreconcileentry = "SELECT * FROM (".$sql_q1." UNION ".$sql_q2.")t1 ORDER BY TranDate DESC limit 10";
+		}
     }
     else{
-		$sql_unreconcileentry = "SELECT p.TranDate, sa.bankShNm , bb.`BankBrnchNm` , (CASE WHEN p.CclFlg = -1 THEN 4 ELSE (CASE WHEN v.ReconInd IS NULL THEN 0 ELSE v.ReconInd END) END) ReconInd , p.BankDpstAmt , (CASE WHEN v.AcxnAmt IS NULL THEN p.Amount ELSE   v.AcxnAmt  END ) AS Amount FROM ".$dbPrefix_curr.".`tbxdealpmntjrnl` p LEFT JOIN ".$dbPrefix_curr.".tbxAcVoucher AS v
-        ON  p.VchrNo=v.AcVchNo AND AcVchTyp=3  AND v.AcxnSrNo=1
-        JOIN ".$dbPrefix.".tbmsourcebank sa ON sa.BankId=p.BankId
-        JOIN ".$dbPrefix.".tbmsourcebankbrnch bb ON bb.BankBrnchId= p.BranchId
-        WHERE POSId='$posid' ORDER BY TranDate DESC limit 10";
-    }
+
+        $sql_unreconcileentry = "SELECT * FROM (".$sql_q1." UNION ".$sql_q2.")t1 ORDER BY TranDate DESC limit 10";
+	}
+
     $unreconcileentry = executeSelect($sql_unreconcileentry);
 
     $response = array();
