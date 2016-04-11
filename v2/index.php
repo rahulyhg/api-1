@@ -661,6 +661,7 @@ function postDues(){
 	//$jrnlno = 'J-0000';
 	$empid = $request->params('empid');
 	$tranno = $request->params('tranno');
+	$posid = $request->params('posid');
 	$dealno = $request->params('dealno');
 	$rcptdt = $request->params('rcptdt');
 	$paymode = $request->params('paymode');
@@ -710,7 +711,7 @@ function postDues(){
 	}
 
 
-	$sql = "INSERT INTO ".$dbPrefix_curr.".tbxrcptjrnl (JrnlNo,TranNo,EmpId,DealNo,RcptDate,TotAmt,PayMode,ChqNo,ChqDate,BankName,Place,TranTime,RcptMode) VALUES ('$jrnlno', '$tranno', '$empid', '$dealno', '$rcptdt', '$totamt', '$paymode', '$chqno', '$chqdt', '$banknm', '$place', '$trantime', '$rcptmode')";
+	$sql = "INSERT INTO ".$dbPrefix_curr.".tbxrcptjrnl (JrnlNo,TranNo,EmpId,POSId,DealNo,RcptDate,TotAmt,PayMode,TranTime,RcptMode) VALUES ('$jrnlno', '$tranno', '$empid', '$posid', '$dealno', '$rcptdt', '$totamt', '$paymode', '$trantime', '$rcptmode')";
 	$lastid = executeInsert($sql);
 
 	$response = array();
