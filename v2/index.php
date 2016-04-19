@@ -662,7 +662,7 @@ function postDues(){
 	$empid = $request->params('empid');
 	$tranno = $request->params('tranno');
 	$posid = $request->params('posid');
-	$dealno = $request->params('dealno');
+	$deal_no = $request->params('dealno');
 	$rcptdt = $request->params('rcptdt');
 	$paymode = $request->params('paymode');
 	$chqno = $request->params('chqno');
@@ -675,7 +675,17 @@ function postDues(){
 	$dctyp_amt = $request->params('dctyp_amt');
 	$dealid = $request->params('dealid');
 	$dealname = $request->params('dealname');
+	$mobileno = $request->params('mobile');
 	$foreclosure = $request->params('foreclosure');
+	$emidue = 0;
+	$otherdue = 0;
+	$dealno = 0;
+	if(strlen($deal_no) < 6){
+		$dealno = str_pad($deal_no, 6, "0", STR_PAD_LEFT);
+	}
+	else{
+		$dealno = $deal_no;
+	}
 
 	$sql_locktable = "LOCK TABLES ".$dbPrefix_curr.".`tbxcuryymmno` WRITE";
 	$lockid = executeQuery($sql_locktable);
@@ -729,6 +739,14 @@ function postDues(){
 			$sql_update_mincharges = "update ".$dbPrefix.".tbmdealchrgs set MinChrgs = '0' where DCTyp = $dctyp AND dealid = '$dealid'";
 			$affectedrows_mincharges = executeUpdate($sql_update_mincharges);
 
+
+			if($dctyp == 101){
+				$emidue = $dctypamt;
+			}
+			else{
+				$otherdue = $otherdue + $dctypamt;
+			}
+
 		}
 		if ($lastinsertid > 0){
 
@@ -736,6 +754,11 @@ function postDues(){
 				$sql_insert_foreclosure= "INSERT INTO ".$dbPrefix.".tbmdealnocjrnl(TranDt,JrnlNo,DealId,DealNo,DealNm,UpdSts) VALUES(NOW(),CONCAT('R-','$dealid'),'$dealid','$dealno','$dealname','0')";
 				$lastinsertid_foreclosure = executeInsert($sql_insert_foreclosure);
 			}
+
+			$msg = 'Dear Customer, we have received payment of Rs '.$totamt.'.'.' EMI Due: Rs '.$emidue.'.'.' Penalty, Chq Bouncing and Other Charges: Rs '.$otherdue.'.'.' Thank you. -LokSuvidha 9209058000';
+			$msgtag = 'DEAL RECEIPT';
+			$sentto = '3';
+			sendsms($mobileno,$msg,$dealno,$msgtag,$sentto);
 
 			$response["success"] = 1;
 			$response["message"] = 'Dues successfully posted';
@@ -1297,7 +1320,8 @@ function deal_details($deals){
 
 		//$sql_assignment = "select fr.mm as month,fr.yy as year,fr.CallerId as caller_empid,e1.name as caller_name,e1.mobile as caller_phone,fr.SRAId as sra_id,e.name as sra_name,e.Mobile as sra_phone from ".$dbPrefix_curr.".tbxfieldrcvry fr join ".$dbPrefix.".tbmemployee e join ".$dbPrefix.".tbmemployee e1 on fr.SRAId = e.id and fr.CallerId = e1.id where fr.DealId=$dealid";
 
-		$sql_assignment = "select fr.mm as month,fr.yy as year,fr.CallerId as caller_empid,e1.name as caller_name,e1.mobile as caller_phone,fr.SRAId as sra_id,e.name as sra_name,e.Mobile as sra_phone from ".$dbPrefix_curr.".tbxfieldrcvry fr join ".$dbPrefix.".tbmemployee e join ".$dbPrefix.".tbmemployee e1 on fr.SRAId = e.oldid and fr.CallerId = e1.portalid where fr.DealId=$dealid AND fr.mm = MONTH(CURDATE())";
+		$sql_assignment = "select fr.mm as month,fr.yy as year,fr.CallerId as caller_empid,e1.name as caller_name,e1.mobile as caller_phone,fr.SRAId as sra_id,e.name as sra_name,e.Mobile as sra_phone from ".$dbPrefix_curr.".tbxfieldrcvry fr join ".$dbPrefix.".tbmemployee e join ".$dbPrefix.".tbmemployee e1 on fr.SRAId = e.oldid and fr.CallerId = e1.portalid where fr.DealId=$dealid limit 4"; //AND fr.mm = MONTH(CURDATE())";
+
 		$assignment = executeSelect($sql_assignment);
 
 		$sql_otherphone = "select mobile, mobile2 from ".$dbPrefix.".tbmdeal where DealId=$dealid";
@@ -1674,13 +1698,13 @@ function getUnreconcileDepositEntry($posid){
     $dbPrefix = $_SESSION['DB_PREFIX'];
     $dbPrefix_last = $_SESSION['DB_PREFIX_LAST'];
 
-    $sql_q1 = "SELECT p.TranDate, sa.bankShNm, bb.`BankBrnchNm`, (CASE WHEN p.CclFlg = -1 THEN 4 ELSE (CASE WHEN v.ReconInd IS NULL THEN 0 ELSE v.ReconInd END) END) ReconInd, p.BankDpstAmt, (CASE WHEN v.AcxnAmt IS NULL THEN p.Amount ELSE v.AcxnAmt END) AS Amount
+    $sql_q1 = "SELECT p.TranDate, sa.bankShNm, bb.`BankBrnchNm`, (CASE WHEN p.CclFlg = -1 THEN 4 ELSE (CASE WHEN v.ReconInd IS NULL THEN 0 ELSE v.ReconInd END) END) ReconInd, p.Amount, (CASE WHEN v.AcxnAmt IS NULL THEN p.Amount ELSE v.AcxnAmt END) AS BankDpstAmt
     FROM ".$dbPrefix_curr.".`tbxdealpmntjrnl` p LEFT JOIN ".$dbPrefix_curr.".tbxAcVoucher AS v ON  p.VchrNo=v.AcVchNo AND AcVchTyp=3 AND v.AcxnSrNo = 1
     JOIN ".$dbPrefix.".tbmsourcebank sa ON sa.BankId=p.BankId
     JOIN ".$dbPrefix.".tbmsourcebankbrnch bb ON bb.BankBrnchId= p.BranchId
     WHERE POSId='$posid'";
 
-    $sql_q2 = "SELECT p.TranDate, sa.bankShNm, bb.`BankBrnchNm`, (CASE WHEN p.CclFlg = -1 THEN 4 ELSE (CASE WHEN v.ReconInd IS NULL THEN 0 ELSE v.ReconInd END) END) ReconInd, p.BankDpstAmt, (CASE WHEN v.AcxnAmt IS NULL THEN p.Amount ELSE v.AcxnAmt END) AS Amount
+    $sql_q2 = "SELECT p.TranDate, sa.bankShNm, bb.`BankBrnchNm`, (CASE WHEN p.CclFlg = -1 THEN 4 ELSE (CASE WHEN v.ReconInd IS NULL THEN 0 ELSE v.ReconInd END) END) ReconInd, p.Amount, (CASE WHEN v.AcxnAmt IS NULL THEN p.Amount ELSE v.AcxnAmt END) AS BankDpstAmt
 	FROM ".$dbPrefix_last.".`tbxdealpmntjrnl` p LEFT JOIN ".$dbPrefix_last.".tbxAcVoucher AS v ON  p.VchrNo=v.AcVchNo AND AcVchTyp=3 AND v.AcxnSrNo = 1
 	JOIN ".$dbPrefix.".tbmsourcebank sa ON sa.BankId=p.BankId
 	JOIN ".$dbPrefix.".tbmsourcebankbrnch bb ON bb.BankBrnchId= p.BranchId
