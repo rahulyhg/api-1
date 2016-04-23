@@ -635,7 +635,7 @@ function getDues($dealid, $foreclosure){
 
 	$response = array();
 
-	if($dues['row_count']>0){
+	if($dues['row_count']>0 || $od>0){
 		$response["success"] = 1;
 	}
 	else{
