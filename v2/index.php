@@ -22,7 +22,7 @@ $app->get('/dues/:dealid/:foreclosure', 'getDues');  //13
 $app->post('/postdues', 'postDues');  //14
 $app->get('/deallogs/:dealid', 'getDealLogs');  //15
 $app->get('/dealledgers/:dealid', 'getDealLedger');  //16
-$app->post('/postmobileno', 'postMobileNo');  //17 (Pending)
+$app->post('/postmobileno', 'postMobileNo');  //17
 $app->post('/postaddress', 'postAddress');  //18 (Pending)
 $app->post('/postrtoregno', 'postRTORegNo');  //19
 $app->post('/postbankdeposit', 'postBankDeposit');  //20
@@ -30,8 +30,9 @@ $app->post('/updateappinfo', 'updateAppInfo');  //21
 $app->post('/updatelastlogin', 'updateLastLogin');  //22
 $app->get('/notifications/:empid/:lastid', 'getNotifications');  //23
 $app->get('/updateddeals/:empid/:lasttimestamp', 'getUpdatedDeals');  //24
-$app->post('/postdiagnosticlogs', 'PostDiagnosticLogs');  //25 (Pending)
-$app->post('/postescalation', 'PostEscalation');  //26 (Pending)
+$app->post('/postdiagnosticlogs', 'postDiagnosticLogs');  //25 (Pending)
+$app->post('/postescalation', 'postEscalation');  //26 (Pending)
+$app->post('/requestnoc', 'requestNOC');  //27
 
 $app->get('/smsresponse/:id', 'smsresponse');
 $app->get('/sendsms/:mobileno/:msg/:dealno/:msgtag/:sentto', 'sendsms');
@@ -46,7 +47,7 @@ $app->get('/cashinhand/:sraid', 'getCashInHand');
 $app->get('/postdepositentry/:tranno/:posid/:trandate/:bankid/:bankacid/:branchid/:branchcode/:amount/:trantime/:usedlimit', 'postDepositEntry');
 $app->post('/postdepositentry', 'post_DepositEntry');
 
-$app->get('/verifyproposal/:proposalno', 'verifyProposal');
+$app->get('/proposalCriteria/:proposalno', 'proposalCriteria');
 
 $app->get('/proposaldata/:imei', 'getProposaldata');
 $app->get('/newproposal/:salesmanid/:brkrid/:bankid/:prslname', 'postNewProposal');
@@ -187,7 +188,7 @@ function getStaticData($empid){
 	$state['result'] = $states;
 	$staticdata['states'] = $state;
 
-   	$sql_logs = "select Description as tag from ".$dbPrefix.".tbmrecoverytags where allowtagto = 0";
+   	$sql_logs = "select Description as tag from ".$dbPrefix.".tbmrecoverytags WHERE allowtagto IN(0,2) AND Tagtyp = 1 AND active = 2";
 	$logs = executeSelect($sql_logs);
 	$staticdata['logreason']=$logs;
 
@@ -262,7 +263,7 @@ function getDeals($empid,$page) {
 	//$sraid = $_SESSION['userid'];
 	$sraid = $empid;
 
-    $sql = "select sql_calc_found_rows fr.dealid, fr.dealid, fr.dealno, tcase(fr.dealnm) as name,tcase(d.centre) as centre, tcase(fr.area) as area, tcase(fr.city) as city, tcase(fr.address) as address, fr.mobile, DATE_FORMAT(fr.hpdt, '%d-%m-%Y') as hpdt, round(fr.dueamt) as total_due,round(fr.OdDueAmt) as overdue,round(fr.MinReqOD) as minreq_od,concat(fr.dd,'-',fr.mm,'-',fr.yy) as assigned_on,fr.rec_flg as recovered_flg, DATE_FORMAT(fr.CallerFollowupDt,'%d-%m-%Y') as caller_followup_dt,DATE_FORMAT(case when fr.SRAFollowupDt is null then fr.CallerFollowupDt else fr.SRAFollowupDt end,'%d-%m-%Y') as sra_followup_dt, fr.rgid as bucket, fr.bankid, round(d.financeamt) as finance_amt,round(fr.emi) as emi,d.period as tenure,DATE_FORMAT(d.hpexpdt, '%d-%m-%Y') as expiry_dt, DATE_FORMAT(d.startduedt, '%d') as emi_day,DATE_FORMAT(d.startduedt, '%d-%m-%Y') as startdue_dt,(case when d.paytype=1 then 'PDC' when d.paytype=2 then 'ECS' when d.paytype=3 then 'Direct Debit' end) as type, tcase(concat(dv.make, ' ', dv.model)) as vehicle_model, dv.VhclColour as vehicle_color, dv.Chasis as vehicle_chasis_no, dv.EngineNo as vehicle_engine_no, dv.RTORegNo as vehicle_rto_reg_no, tcase(b.BrkrNm) as dealer, tcase(trim(concat(ifnull(b.city,''), ' ', case when b.centre != b.city then b.centre else '' end))) as dealer_loc, fr.SalesmanId as salesman_id,s.SalesmanNm as salesman_name,s.Mobile as salesman_mobile
+    $sql = "select sql_calc_found_rows fr.dealid, fr.dealid, fr.dealno, tcase(fr.dealnm) as name,tcase(d.centre) as centre, tcase(fr.area) as area, tcase(fr.city) as city, tcase(fr.address) as address, fr.mobile, DATE_FORMAT(fr.hpdt, '%d-%m-%Y') as hpdt, round(fr.dueamt) as total_due,round(fr.OdDueAmt) as overdue,round(fr.MinReqOD) as minreq_od, concat(fr.dd,'-',fr.mm,'-',fr.yy) as assigned_on, fr.rec_flg as recovered_flg, fr.expired as expired_flg, DATE_FORMAT(STR_TO_DATE(CONCAT(fr.dd,'-',fr.mm,'-',fr.yy),'%d-%m-%Y'),'%d-%m-%Y') AS assigned_dt, DATE_FORMAT(fr.CallerFollowupDt,'%d-%m-%Y') as caller_followup_dt,DATE_FORMAT(case when fr.SRAFollowupDt is null then fr.CallerFollowupDt else fr.SRAFollowupDt end,'%d-%m-%Y') as sra_followup_dt, fr.rgid as bucket, fr.bankid, round(d.financeamt) as finance_amt,round(fr.emi) as emi,d.period as tenure,DATE_FORMAT(d.hpexpdt, '%d-%m-%Y') as expiry_dt, DATE_FORMAT(d.startduedt, '%d') as emi_day,DATE_FORMAT(d.startduedt, '%d-%m-%Y') as startdue_dt, trim(concat(IFNULL(dv.Manufacture,''), ' ', IFNULL(dv.Make,''), ' ', IFNULL(dv.Model,''))) AS vehicle_model, dv.VhclColour as vehicle_color, dv.Chasis as vehicle_chasis_no, dv.EngineNo as vehicle_engine_no, dv.RTORegNo as vehicle_rto_reg_no, tcase(b.BrkrNm) as dealer, tcase(trim(concat(ifnull(b.city,''), ' ', case when b.centre != b.city then b.centre else '' end))) as dealer_loc, fr.SalesmanId as salesman_id,s.SalesmanNm as salesman_name,s.Mobile as salesman_mobile
 	FROM ".$dbPrefix_curr.".tbxfieldrcvry fr
 	join ".$dbPrefix.".tbmdeal d
 	join ".$dbPrefix.".tbmdealvehicle dv
@@ -298,14 +299,29 @@ function getDashboards($empid){
 	$sraid = $empid;
 
 	$sql = "SELECT * FROM (SELECT f.yy, f.mm, f.sraid AS empid, NULL AS empname, SUM(d.total) AS collection, SUM(d.OD) AS od, SUM(d.Penalty) AS penalty, SUM(d.CB) AS bouncing, SUM(d.Other) AS others,
-	SUM(CASE WHEN f.dd = 1 THEN 1 ELSE 0 END) AS assigned_fd, SUM(CASE WHEN f.dd = 1 AND d.dealid IS NOT NULL THEN 1 ELSE 0 END) AS recovered_fd,
-	SUM(CASE WHEN f.dd != 1 THEN 1 ELSE 0 END) AS assigned_dm, SUM(CASE WHEN f.dd != 1 AND d.dealid IS NOT NULL THEN 1 ELSE 0 END) AS recovered_dm, COUNT(f.dealid) AS assinged, COUNT(d.dealid) AS recovered,
-	SUM(CASE WHEN f.rgid = 1 THEN 1 ELSE 0 END) AS assigned_b1, SUM(CASE WHEN f.rgid =1 AND d.dealid IS NOT NULL THEN 1 ELSE 0 END) AS recovered_b1,
-	SUM(CASE WHEN f.rgid = 2 THEN 1 ELSE 0 END) AS assigned_b2, SUM(CASE WHEN f.rgid =2 AND d.dealid IS NOT NULL THEN 1 ELSE 0 END) AS recovered_b2,
-	SUM(CASE WHEN f.rgid = 3 THEN 1 ELSE 0 END) AS assigned_b3, SUM(CASE WHEN f.rgid =3 AND d.dealid IS NOT NULL THEN 1 ELSE 0 END) AS recovered_b3,
-	SUM(CASE WHEN f.rgid = 4 THEN 1 ELSE 0 END) AS assigned_b4, SUM(CASE WHEN f.rgid =4 AND d.dealid IS NOT NULL THEN 1 ELSE 0 END) AS recovered_b4,
-	SUM(CASE WHEN f.rgid = 5 THEN 1 ELSE 0 END) AS assigned_b5, SUM(CASE WHEN f.rgid =5 AND d.dealid IS NOT NULL THEN 1 ELSE 0 END) AS recovered_b5,
-	SUM(CASE WHEN f.rgid > 5 THEN 1 ELSE 0 END) AS assigned_b6, SUM(CASE WHEN f.rgid >5 AND d.dealid IS NOT NULL THEN 1 ELSE 0 END) AS recovered_b6, 0 AS target_fd
+	SUM(CASE WHEN f.dd = 1 THEN 1 ELSE 0 END) AS assigned_fd,
+	SUM(CASE WHEN f.dd = 1 THEN f.rec_flg ELSE 0 END) AS recovered_fd,
+	SUM(CASE WHEN f.dd > 1 THEN 1 ELSE 0 END) AS assigned_dm,
+	SUM(CASE WHEN f.dd > 1 THEN f.rec_flg ELSE 0 END) AS recovered_dm,
+	COUNT(f.dealid) AS assinged,
+	SUM(f.rec_flg) AS recovered,
+	SUM(CASE WHEN f.rgid = 1 AND f.expired = 0 THEN 1 ELSE 0 END) AS assigned_b1a,
+	SUM(CASE WHEN f.rgid = 1 AND f.expired = 0 THEN f.rec_flg ELSE 0 END) AS recovered_b1a,
+	SUM(CASE WHEN f.rgid = 1 AND f.expired = 1 THEN 1 ELSE 0 END) AS assigned_b1e,
+	SUM(CASE WHEN f.rgid = 1 AND f.expired = 1 THEN f.rec_flg ELSE 0 END) AS recovered_b1e,
+	SUM(CASE WHEN f.rgid = 1 THEN 1 ELSE 0 END) AS assigned_b1,
+	SUM(CASE WHEN f.rgid = 1 THEN f.rec_flg ELSE 0 END) AS recovered_b1,
+	SUM(CASE WHEN f.rgid = 2 THEN 1 ELSE 0 END) AS assigned_b2,
+	SUM(CASE WHEN f.rgid = 2 THEN f.rec_flg ELSE 0 END) AS  recovered_b2,
+	SUM(CASE WHEN f.rgid = 3 THEN 1 ELSE 0 END) AS assigned_b3,
+	SUM(CASE WHEN f.rgid = 3 THEN f.rec_flg ELSE 0 END) AS recovered_b3,
+	SUM(CASE WHEN f.rgid = 4 THEN 1 ELSE 0 END) AS assigned_b4,
+	SUM(CASE WHEN f.rgid = 4 THEN f.rec_flg ELSE 0 END) AS recovered_b4,
+	SUM(CASE WHEN f.rgid = 5 THEN 1 ELSE 0 END) AS assigned_b5,
+	SUM(CASE WHEN f.rgid = 5 THEN f.rec_flg ELSE 0 END) AS recovered_b5,
+	SUM(CASE WHEN f.rgid > 5 THEN 1 ELSE 0 END) AS assigned_b6,
+	SUM(CASE WHEN f.rgid > 5 THEN f.rec_flg ELSE 0 END) AS recovered_b6,
+	0 AS target_fd
 	FROM ".$dbPrefix_curr.".tbxfieldrcvry f LEFT JOIN
 	(SELECT MONTH(rcptdt) AS mm, r.dealid, SUM(rd.rcptamt) AS total,
 	SUM(CASE WHEN rd.dctyp IN (101,102,111) THEN rd.rcptamt ELSE 0 END) AS OD,
@@ -313,18 +329,34 @@ function getDashboards($empid){
 	SUM(CASE WHEN rd.dctyp = 104 THEN rd.rcptamt ELSE 0 END) AS Penalty,
 	SUM(CASE WHEN rd.dctyp > 104 AND rd.dctyp < 111 THEN rd.rcptamt ELSE 0 END) AS Other
 	FROM ".$dbPrefix_curr.".tbxdealrcpt r JOIN ".$dbPrefix_curr.".tbxdealrcptdtl rd ON r.rcptid = rd.rcptid AND r.cclflg = 0 AND r.cbflg = 0 AND r.rcptpaymode = 1
-	GROUP BY MONTH(rcptdt), dealid) d ON f.dealid = d.dealid AND f.mm = d.mm
+	GROUP BY MONTH(rcptdt), dealid
+	) d ON f.dealid = d.dealid AND f.mm = d.mm
  	WHERE f.sraid = $sraid GROUP BY f.mm
  	UNION
  	SELECT f.yy, f.mm, f.sraid AS empid, NULL AS empname, SUM(d.total) AS collection, SUM(d.OD) AS od, SUM(d.Penalty) AS penalty, SUM(d.CB) AS bouncing, SUM(d.Other) AS others,
-	SUM(CASE WHEN f.dd = 1 THEN 1 ELSE 0 END) AS assigned_fd, SUM(CASE WHEN f.dd = 1 AND d.dealid IS NOT NULL THEN 1 ELSE 0 END) AS recovered_fd,
-	SUM(CASE WHEN f.dd != 1 THEN 1 ELSE 0 END) AS assigned_dm, SUM(CASE WHEN f.dd != 1 AND d.dealid IS NOT NULL THEN 1 ELSE 0 END) AS recovered_dm, COUNT(f.dealid) AS assinged, COUNT(d.dealid) AS recovered,
-	SUM(CASE WHEN f.rgid = 1 THEN 1 ELSE 0 END) AS assigned_b1, SUM(CASE WHEN f.rgid =1 AND d.dealid IS NOT NULL THEN 1 ELSE 0 END) AS recovered_b1,
-	SUM(CASE WHEN f.rgid = 2 THEN 1 ELSE 0 END) AS assigned_b2, SUM(CASE WHEN f.rgid =2 AND d.dealid IS NOT NULL THEN 1 ELSE 0 END) AS recovered_b2,
-	SUM(CASE WHEN f.rgid = 3 THEN 1 ELSE 0 END) AS assigned_b3, SUM(CASE WHEN f.rgid =3 AND d.dealid IS NOT NULL THEN 1 ELSE 0 END) AS recovered_b3,
-	SUM(CASE WHEN f.rgid = 4 THEN 1 ELSE 0 END) AS assigned_b4, SUM(CASE WHEN f.rgid =4 AND d.dealid IS NOT NULL THEN 1 ELSE 0 END) AS recovered_b4,
-	SUM(CASE WHEN f.rgid = 5 THEN 1 ELSE 0 END) AS assigned_b5, SUM(CASE WHEN f.rgid =5 AND d.dealid IS NOT NULL THEN 1 ELSE 0 END) AS recovered_b5,
-	SUM(CASE WHEN f.rgid > 5 THEN 1 ELSE 0 END) AS assigned_b6, SUM(CASE WHEN f.rgid >5 AND d.dealid IS NOT NULL THEN 1 ELSE 0 END) AS recovered_b6, 0 AS target_fd
+	SUM(CASE WHEN f.dd = 1 THEN 1 ELSE 0 END) AS assigned_fd,
+	SUM(CASE WHEN f.dd = 1 THEN f.rec_flg ELSE 0 END) AS recovered_fd,
+	SUM(CASE WHEN f.dd > 1 THEN 1 ELSE 0 END) AS assigned_dm,
+	SUM(CASE WHEN f.dd > 1 THEN f.rec_flg ELSE 0 END) AS recovered_dm,
+	COUNT(f.dealid) AS assinged,
+	SUM(f.rec_flg) AS recovered,
+	SUM(CASE WHEN f.rgid = 1 AND f.expired = 0 THEN 1 ELSE 0 END) AS assigned_b1a,
+	SUM(CASE WHEN f.rgid = 1 AND f.expired = 0 THEN f.rec_flg ELSE 0 END) AS recovered_b1a,
+	SUM(CASE WHEN f.rgid = 1 AND f.expired = 1 THEN 1 ELSE 0 END) AS assigned_b1e,
+	SUM(CASE WHEN f.rgid = 1 AND f.expired = 1 THEN f.rec_flg ELSE 0 END) AS recovered_b1e,
+	SUM(CASE WHEN f.rgid = 1 THEN 1 ELSE 0 END) AS assigned_b1,
+	SUM(CASE WHEN f.rgid = 1 THEN f.rec_flg ELSE 0 END) AS recovered_b1,
+	SUM(CASE WHEN f.rgid = 2 THEN 1 ELSE 0 END) AS assigned_b2,
+	SUM(CASE WHEN f.rgid = 2 THEN f.rec_flg ELSE 0 END) AS  recovered_b2,
+	SUM(CASE WHEN f.rgid = 3 THEN 1 ELSE 0 END) AS assigned_b3,
+	SUM(CASE WHEN f.rgid = 3 THEN f.rec_flg ELSE 0 END) AS recovered_b3,
+	SUM(CASE WHEN f.rgid = 4 THEN 1 ELSE 0 END) AS assigned_b4,
+	SUM(CASE WHEN f.rgid = 4 THEN f.rec_flg ELSE 0 END) AS recovered_b4,
+	SUM(CASE WHEN f.rgid = 5 THEN 1 ELSE 0 END) AS assigned_b5,
+	SUM(CASE WHEN f.rgid = 5 THEN f.rec_flg ELSE 0 END) AS recovered_b5,
+	SUM(CASE WHEN f.rgid > 5 THEN 1 ELSE 0 END) AS assigned_b6,
+	SUM(CASE WHEN f.rgid > 5 THEN f.rec_flg ELSE 0 END) AS recovered_b6,
+	0 AS target_fd
 	FROM ".$dbPrefix_last.".tbxfieldrcvry f LEFT JOIN
 	(SELECT MONTH(rcptdt) AS mm, r.dealid, SUM(rd.rcptamt) AS total,
 	SUM(CASE WHEN rd.dctyp IN (101,102,111) THEN rd.rcptamt ELSE 0 END) AS OD,
@@ -477,10 +509,10 @@ function searchDeals($empid,$query,$page){
 		return;
 	}
 	else{
-	 	$q = "SELECT sql_calc_found_rows d.dealid, d.dealno, tcase(d.dealnm) as name, tcase(d.city) as city, tcase(d.area) as area, trim(concat(IFNULL(d.add1,''), ' ', IFNULL(d.add2,''), ' ', IFNULL(d.area,''), ' ', IFNULL(d.tahasil,''))) as address, round(fr.OdDueAmt) as overdue, round(fr.DueAmt) as total_due, round(fr.MinReqOD) as minreq_od, fr.rgid as bucket, fr.bankid, d.Mobile as mobile, dg.mobile as guarantor_mobile, tcase(concat(dv.make, ' ', dv.model)) as vehicle_model, concat(fr.dd,'-',fr.mm,'-',fr.yy) as assigned_on, DATE_FORMAT(fr.CallerFollowupDt,'%d-%m-%Y') as caller_followup_dt,DATE_FORMAT(fr.SRAFollowupDt,'%d-%m-%Y') as sra_followup_dt
+	 	$q = "SELECT sql_calc_found_rows d.dealid, d.dealno, tcase(d.dealnm) as name, tcase(d.city) as city, tcase(d.area) as area, trim(concat(IFNULL(d.add1,''), ' ', IFNULL(d.add2,''), ' ', IFNULL(d.area,''), ' ', IFNULL(d.tahasil,''))) as address,tcase(d.centre) as centre, round(fr.OdDueAmt) as overdue, round(fr.DueAmt) as total_due, round(fr.MinReqOD) as minreq_od, fr.rgid as bucket, fr.bankid, d.Mobile as mobile, dg.mobile as guarantor_mobile, trim(concat(IFNULL(dv.Manufacture,''), ' ', IFNULL(dv.Make,''), ' ', IFNULL(dv.Model,''))) AS vehicle_model,concat(fr.dd,'-',fr.mm,'-',fr.yy) as assigned_on, fr.rec_flg as recovered_flg, fr.expired as expired_flg, DATE_FORMAT(STR_TO_DATE(CONCAT(fr.dd,'-',fr.mm,'-',fr.yy),'%d-%m-%Y'),'%d-%m-%Y') AS assigned_dt, DATE_FORMAT(fr.CallerFollowupDt,'%d-%m-%Y') as caller_followup_dt,DATE_FORMAT(fr.SRAFollowupDt,'%d-%m-%Y') as sra_followup_dt
 	 	FROM ".$dbPrefix.".tbmdeal d
 	 	JOIN ".$dbPrefix.".tbmdealvehicle dv on d.dealid = dv.dealid
-	 	JOIN ".$dbPrefix.".tbmdealguarantors dg on d.dealid = dg.dealid
+	 	LEFT JOIN ".$dbPrefix.".tbmdealguarantors dg on d.dealid = dg.dealid
 	 	LEFT JOIN ".$dbPrefix_curr.".tbxfieldrcvry fr ON d.dealid = fr.dealid and fr.mm = ".date('n')."";
 
 
@@ -515,7 +547,7 @@ function getDeal($dealid) {
     $dbPrefix_curr = $_SESSION['DB_PREFIX_CURR'];
     $dbPrefix_last = $_SESSION['DB_PREFIX_LAST'];
 
-	$sql = "select d.dealid, d.dealno, tcase(d.dealnm) as name,tcase(d.centre) as centre, tcase(d.area) as area, tcase(d.city) as city, trim(concat(IFNULL(d.add1,''), ' ', IFNULL(d.add2,''), ' ', IFNULL(d.area,''), ' ', IFNULL(d.tahasil,''))) as address, d.mobile, DATE_FORMAT(d.hpdt, '%d-%m-%Y') as hpdt, round(fr.dueamt) as total_due,round(fr.OdDueAmt) as overdue, round(fr.MinReqOD) as minreq_od, concat(fr.dd,'-',fr.mm,'-',fr.yy) as assigned_on, fr.rec_flg as recovered_flg, DATE_FORMAT(fr.CallerFollowupDt,'%d-%m-%Y') as caller_followup_dt,DATE_FORMAT(fr.SRAFollowupDt,'%d-%m-%Y') as sra_followup_dt, fr.rgid as bucket, fr.bankid, round(d.financeamt) as finance_amt,round(ps.MthlyAmt+ps.CollectionChrgs) as emi,d.period as tenure,DATE_FORMAT(d.hpexpdt, '%d-%m-%Y') as expiry_dt, DATE_FORMAT(d.startduedt, '%d') as emi_day,DATE_FORMAT(d.startduedt, '%d-%m-%Y') as startdue_dt,(case when d.paytype=1 then 'PDC' when d.paytype=2 then 'ECS' when d.paytype=3 then 'Direct Debit' end) as type, tcase(concat(dv.make, ' ', dv.model)) as vehicle_model, dv.VhclColour as vehicle_color, dv.Chasis as vehicle_chasis_no, dv.EngineNo as vehicle_engine_no, dv.RTORegNo as vehicle_rto_reg_no, tcase(b.BrkrNm) as dealer, tcase(trim(concat(ifnull(b.city,''), ' ', case when b.centre != b.city then b.centre else '' end))) as dealer_loc, s.SalesmanId as salesman_id, s.SalesmanNm as salesman_name, s.Mobile as salesman_mobile
+	$sql = "select d.dealid, d.dealno, tcase(d.dealnm) as name,tcase(d.centre) as centre, tcase(d.area) as area, tcase(d.city) as city, trim(concat(IFNULL(d.add1,''), ' ', IFNULL(d.add2,''), ' ', IFNULL(d.area,''), ' ', IFNULL(d.tahasil,''))) as address, d.mobile, DATE_FORMAT(d.hpdt, '%d-%m-%Y') as hpdt, round(fr.dueamt) as total_due,round(fr.OdDueAmt) as overdue, round(fr.MinReqOD) as minreq_od, concat(fr.dd,'-',fr.mm,'-',fr.yy) as assigned_on, fr.rec_flg as recovered_flg, fr.expired as expired_flg, DATE_FORMAT(STR_TO_DATE(CONCAT(fr.dd,'-',fr.mm,'-',fr.yy),'%d-%m-%Y'),'%d-%m-%Y') AS assigned_dt, DATE_FORMAT(fr.CallerFollowupDt,'%d-%m-%Y') as caller_followup_dt,DATE_FORMAT(fr.SRAFollowupDt,'%d-%m-%Y') as sra_followup_dt, fr.rgid as bucket, fr.bankid, round(d.financeamt) as finance_amt,round(ps.MthlyAmt+ps.CollectionChrgs) as emi,d.period as tenure,DATE_FORMAT(d.hpexpdt, '%d-%m-%Y') as expiry_dt, DATE_FORMAT(d.startduedt, '%d') as emi_day,DATE_FORMAT(d.startduedt, '%d-%m-%Y') as startdue_dt,trim(concat(IFNULL(dv.Manufacture,''), ' ', IFNULL(dv.Make,''), ' ', IFNULL(dv.Model,''))) AS vehicle_model, dv.VhclColour as vehicle_color, dv.Chasis as vehicle_chasis_no, dv.EngineNo as vehicle_engine_no, dv.RTORegNo as vehicle_rto_reg_no, tcase(b.BrkrNm) as dealer, tcase(trim(concat(ifnull(b.city,''), ' ', case when b.centre != b.city then b.centre else '' end))) as dealer_loc, s.SalesmanId as salesman_id, s.SalesmanNm as salesman_name, s.Mobile as salesman_mobile
 	FROM ".$dbPrefix.".tbmdeal d
 	JOIN ".$dbPrefix.".tbmdealvehicle dv on d.dealid = dv.dealid and d.dealid = $dealid
 	JOIN ".$dbPrefix.".tbmbroker b on d.brkrid = b.brkrid
@@ -544,49 +576,43 @@ function getDeal($dealid) {
 function postLogs(){
 	$dbPrefix_curr = $_SESSION['DB_PREFIX_CURR'];
 	$request = Slim::getInstance()->request();
-	//check_session();
-	//$sraid = $_SESSION['userid'];
 
-	$followup_dt = date('Y-m-d');
-	$sraid = $request->params('empid');
+	$empid = $request->params('empid');
 	$dealid = $request->params('dealid');
 	$nextfollowup_dt = $request->params('nextfollowup_dt');
 	$remark = $request->params('remark');
 	$logtype = $request->params('logtype');
-	$tagid = $request->params('tagid');
+
 
 	if (!ctype_digit($dealid)){
 		$response = error_code(1012);
 	}
-	else if (!preg_match("/^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[1-2][0-9]|3[0-1])$/",$nextfollowup_dt)){
-		$response = error_code(1013);
-	}
+
 	else if (!($logtype == 1 || $logtype == 2)){
 		$response = error_code(1014);
 	}
-	else if (!ctype_digit($tagid)){
-		$response = error_code(1015);
-	}
+
 	else{
-	    $sql = "INSERT INTO ".$dbPrefix_curr.".tbxdealfollowuplog (DealId,FollowupDate,NxtFollowupDate,FollowupRemark,WebUserId,LogType,TagId) VALUES ($dealid, '$followup_dt','$nextfollowup_dt', '$remark',$sraid, $logtype,$tagid)";
+	    $sql = "INSERT INTO ".$dbPrefix_curr.".tbxdealfollowuplog (DealId,FollowupDate,NxtFollowupDate,FollowupRemark,EmpId,LogType) VALUES ($dealid, NOW(),'$nextfollowup_dt', '$remark',$empid, $logtype)";
 	    $lastid = executeInsert($sql);
 		$response = array();
 		if($lastid > 0){
             $affectedrows=0;
 			if($logtype == 1){
 				$sql = "update ".$dbPrefix_curr.".tbxfieldrcvry set SRAFollowupDt = '$nextfollowup_dt' where dealid=$dealid and mm = ".date('n')."";
+
 			}
 			else if($logtype == 2){
-				$sql = "update ".$dbPrefix_curr.".tbxfieldrcvry set CallerFollowupDt = '$nextfollowup_dt' where dealid=$dealid and mm = ".date('n')." ";
+				$sql = "update ".$dbPrefix_curr.".tbxfieldrcvry set CallerFollowupDt = '$nextfollowup_dt' where dealid=$dealid and mm = ".date('n')."";
 			}
 			$affectedrows = executeUpdate($sql);
-			if($affectedrows>0){
+			//if($affectedrows>0){
 				$response["success"] = 1;
-				$response["message"] = 'Log posted & updated successfully';
-			}
-			else{
-				$response = error_code(1016);
-			}
+				$response["message"] = 'Log updated successfully';
+			//}
+			//else{
+			//	$response = error_code(1016);
+			//}
 		}
 		else{
 			$response = error_code(1017);
@@ -606,6 +632,9 @@ function getDues($dealid, $foreclosure){
 		echo json_encode($response);
 		return;
 	}
+
+	$sql_dealsts = "SELECT dealsts FROM ".$dbPrefix.".tbmdeal WHERE dealid = $dealid";
+	$dealsts = executeSingleSelect($sql_dealsts);
 
 	$sql_dues = "SELECT dctyp as type,round(ChrgsApplied-ChrgsRcvd) as amount,round(MinChrgs) as min_amount FROM ".$dbPrefix.".tbmdealchrgs WHERE DealId=$dealid AND DcTyp NOT IN (101,102,111) AND ChrgsApplied > ChrgsRcvd GROUP BY Dctyp";
 	$dues = executeSelect($sql_dues);
@@ -635,13 +664,21 @@ function getDues($dealid, $foreclosure){
 
 	$response = array();
 
-	if($dues['row_count']>0 || $od>0){
-		$response["success"] = 1;
-	}
-	else{
+	if($dealsts == 3){
 		$response = error_code(1018);
 		echo json_encode($response);
 		return;
+	}
+	else{
+
+		//if($dues['row_count']>0 || $od>0){
+			$response["success"] = 1;
+		//}
+		//else{
+		//	$response = error_code(1018);
+		//	echo json_encode($response);
+		//	return;
+		//}
 	}
 	//Reversing order of dues
 	$dues['result'] = array_reverse($dues['result']);
@@ -721,7 +758,7 @@ function postDues(){
 	}
 
 
-	$sql = "INSERT INTO ".$dbPrefix_curr.".tbxrcptjrnl (JrnlNo,TranNo,EmpId,POSId,DealNo,RcptDate,TotAmt,PayMode,TranTime,RcptMode) VALUES ('$jrnlno', '$tranno', '$empid', '$posid', '$dealno', '$rcptdt', '$totamt', '$paymode', '$trantime', '$rcptmode')";
+	$sql = "INSERT INTO ".$dbPrefix_curr.".tbxrcptjrnl (JrnlNo,TranNo,EmpId,POSId,DealNo,RcptDate,TotAmt,PayMode,TranTime,RcptMode) VALUES ('$jrnlno', '$tranno', '$empid', '$posid', '$dealno', NOW(), '$totamt', '$paymode', CURTIME(), '$rcptmode')";
 	$lastid = executeInsert($sql);
 
 	$response = array();
@@ -821,7 +858,28 @@ function getDealLedger($dealid) {
 
 //17
 function postMobileNo(){
+	$dbPrefix_curr = $_SESSION['DB_PREFIX_CURR'];
+	$dbPrefix = $_SESSION['DB_PREFIX'];
+	$request = Slim::getInstance()->request();
 
+	$empid = $request->params('empid');
+	$posid = $request->params('posid');
+	$jrnlno = $request->params('jrnlno');
+	$dealno = $request->params('dealno');
+	$dealname = $request->params('dealname');
+	$mobile = $request->params('mobile');
+
+	$sql_insert_mobileno= "INSERT INTO ".$dbPrefix.".tbmmobilejrnl(`TranDt`,`POSId`,`JrnlNo`,`DealNo`,`DealNm`,`Mobile`,`Active`,`InsertUserId`,`InsertTimeStamp`) VALUES(NOW(),'$posid','$jrnlno','$dealno','$dealname','$mobile','2','$empid',NOW())";
+	$lastinsertid_mobileno = executeInsert($sql_insert_mobileno);
+
+	if($lastinsertid_mobileno>0){
+		$response["success"] = 1;
+		$response["message"] = 'Mobile number successfully updated';
+	}
+	else{
+		$response = error_code(1053);
+	}
+	echo json_encode($response);
 }
 
 
@@ -935,7 +993,7 @@ function postBankDeposit(){
 		}
 
 
-	$sql = "INSERT INTO ".$dbPrefix_curr.".tbxdealpmntjrnl (JrnlNo,TranNo,EmpId,TranDate,BankId,BankAcId,BranchId,BranchCode,Amount,TranTime,InsertUserId) VALUES ('$jrnlno', '$tranno', '$empid', '$trandate', '$bankid', '$bankacid', '$branchid', '$branchcode', '$amount', '$trantime', '$empid')";
+	$sql = "INSERT INTO ".$dbPrefix_curr.".tbxdealpmntjrnl (JrnlNo,TranNo,EmpId,TranDate,BankId,BankAcId,BranchId,BranchCode,Amount,TranTime,InsertUserId) VALUES ('$jrnlno', '$tranno', '$empid', NOW(), '$bankid', '$bankacid', '$branchid', '$branchcode', '$amount', CURTIME(), '$empid')";
 	$lastid = executeInsert($sql);
 
 	$response = array();
@@ -1059,7 +1117,7 @@ function getNotifications($empid,$lastid){
 	//$sraid = $_SESSION['userid'];
 	$sraid = $empid;
 
-	$sql = "select PkId as id,message,case when messagetype = 1 then 'R' when messagetype = 2 then 'S' when messagetype = 3 then 'O' end as message_type,DATE_FORMAT(inserttimestamp,'%d-%M %H:%i') as dt from ".$dbPrefix.".tbmnotification where empid = $sraid and pkid>$lastid ORDER BY inserttimestamp DESC";
+$sql = "select PkId as id,message,case when messagetype = 1 then 'R' when messagetype = 2 then 'S' when messagetype = 3 then 'O' end as message_type,DATE_FORMAT(inserttimestamp,'%d-%M %H:%i') as dt from ".$dbPrefix.".tbmnotification where empid = $sraid and pkid>$lastid ORDER BY inserttimestamp DESC";
 	$notifications = executeSelect($sql);
 
 		$response = array();
@@ -1090,7 +1148,7 @@ function getUpdatedDeals($empid,$lasttimestamp){
 	  	$response["message"] = 'Last timestamp is not in proper format';
 	}
 	else{
-		$sql = "SELECT sql_calc_found_rows fr.dealid, fr.dealno, tcase(fr.dealnm) as name, tcase(fr.city) as city, tcase(fr.area) as area,tcase(fr.address) as address, round(fr.OdDueAmt) as overdue, round(fr.DueAmt) as total_due, round(fr.MinReqOD) as minreq_od, fr.rgid as bucket, fr.bankid, fr.Mobile as mobile, fr.GuarantorMobile as guarantor_mobile, tcase(fr.model) as vehicle_model, concat(fr.dd,'-',fr.mm,'-',fr.yy) as assigned_on,fr.rec_flg as recovered_flg,DATE_FORMAT(fr.CallerFollowupDt,'%d-%m-%Y') as caller_followup_dt,DATE_FORMAT(case when fr.SRAFollowupDt is null then fr.CallerFollowupDt else fr.SRAFollowupDt end,'%d-%m-%Y') as sra_followup_dt,dt.UpdateTimeStamp as update_timestamp from ".$dbPrefix_curr.".tbxfieldrcvry fr join ".$dbPrefix.".tbmdealtimestamp dt on fr.dealid=dt.dealid where fr.mm = ".date('n')." and fr.sraid = $sraid and dt.UpdateTimeStamp > '$lasttimestamp'";
+		$sql = "SELECT sql_calc_found_rows fr.dealid, fr.dealno, tcase(fr.dealnm) as name, tcase(fr.city) as city, tcase(fr.area) as area,tcase(fr.address) as address, round(fr.OdDueAmt) as overdue, round(fr.DueAmt) as total_due, round(fr.MinReqOD) as minreq_od, fr.rgid as bucket, fr.bankid, fr.Mobile as mobile, fr.GuarantorMobile as guarantor_mobile, tcase(fr.model) as vehicle_model, concat(fr.dd,'-',fr.mm,'-',fr.yy) as assigned_on, fr.rec_flg as recovered_flg, fr.expired as expired_flg, DATE_FORMAT(STR_TO_DATE(CONCAT(fr.dd,'-',fr.mm,'-',fr.yy),'%d-%m-%Y'),'%d-%m-%Y') AS assigned_dt, DATE_FORMAT(fr.CallerFollowupDt,'%d-%m-%Y') as caller_followup_dt, DATE_FORMAT(case when fr.SRAFollowupDt is null then fr.CallerFollowupDt else fr.SRAFollowupDt end,'%d-%m-%Y') as sra_followup_dt,dt.UpdateTimeStamp as update_timestamp from ".$dbPrefix_curr.".tbxfieldrcvry fr join ".$dbPrefix.".tbmdealtimestamp dt on fr.dealid=dt.dealid where fr.mm = ".date('n')." and fr.sraid = $sraid and dt.UpdateTimeStamp > '$lasttimestamp'";
 
 		$updateddeals = executeSelect($sql);
 
@@ -1110,14 +1168,92 @@ function getUpdatedDeals($empid,$lasttimestamp){
 
 
 //25
-function PostDiagnosticLogs(){
+function postDiagnosticLogs(){
 
 }
 
 
 //26
-function PostEscalation(){
+function postEscalation(){
 
+}
+
+
+//27
+function requestNOC(){
+	$dbPrefix = $_SESSION['DB_PREFIX'];
+	$path = $_SESSION['IMG_UPLOAD_PATH'];
+
+	//$path = "D:/inetpub/wwwroot/in.loksuvidha.com/content/";
+	//$path = "D:/inetpub/wwwroot/dev.loksuvidha.local/content/";
+
+	$response = array();
+	if (isset($_FILES['image']['name'])) {
+		$filename = isset($_POST['filename']) ? $_POST['filename'] : '';
+		$dealid = isset($_POST['dealid']) ? $_POST['dealid'] : '';
+		$deal_no = isset($_POST['dealno']) ? $_POST['dealno'] : '';
+		$dealname = isset($_POST['dealname']) ? $_POST['dealname'] : '';
+		$posid = isset($_POST['posid']) ? $_POST['posid'] : '';
+		$rtoregno = isset($_POST['rtoregno']) ? $_POST['rtoregno'] : '';
+		$file_name = $filename;
+		$dealno = 0;
+		if(strlen($deal_no) < 6){
+			$dealno = str_pad($deal_no, 6, "0", STR_PAD_LEFT);
+		}
+		else{
+			$dealno = $deal_no;
+		}
+
+		$subpath = 'RtoCopy';
+		$newpath = $path.$subpath."/";
+		if (!file_exists($newpath)) {
+		    mkdir($newpath, 0777, true);
+		}
+
+    	$target_path = $newpath . $filename;
+
+		if( file_exists($target_path) ) {
+			$no = 1;
+			while(file_exists($target_path)){
+			   	$name = substr($filename, 0, -5);
+				$no++;
+				$file_name=$name.$no.".jpg";
+			   	$target_path = $newpath.$file_name;
+			}
+		}
+
+		$sql_insert = "INSERT INTO ".$dbPrefix.".tbmdealnocjrnl(TranDt,JrnlNo,DealId,DealNo,DealNm,UpdSts,RTORegNo,POSId)
+		VALUES(NOW(),CONCAT('R-','$dealid'),'$dealid','$dealno','$dealname','0','$rtoregno','$posid')
+		ON DUPLICATE KEY UPDATE RTORegNo = '$rtoregno',POSId = '$posid'";
+
+		$lastid = executeInsert($sql_insert);
+
+		if($lastid>0){
+			try {
+				if (!move_uploaded_file($_FILES['image']['tmp_name'], $target_path)) {
+					$response["success"] = 0;
+					$response["message"] = 'Could not upload the document!';
+				}
+				else{
+					$response["success"] = 1;
+					$response["message"] = 'NOC request has been successfully posted!';
+				}
+			}
+			catch (Exception $e) {
+				$response["success"] = 0;
+				$response["message"] = $e->getMessage();
+   			}
+		}
+		else{
+			$response["success"] = 0;
+			$response["message"] = 'Failed to post NOC request';
+		}
+	}
+	else {
+	    $response["success"] = 0;
+	    $response["message"] = 'Not received any file!';
+	}
+	echo json_encode($response);
 }
 
 
@@ -1318,6 +1454,9 @@ function deal_details($deals){
 		$sql_guarantor = "select tcase(GrtrNm) as name, tcase(concat(add1, ' ', add2, ' ', area, ' ', tahasil, ' ', city)) as address, mobile as mobile from ".$dbPrefix.".tbmdealguarantors where DealId=$dealid";
 		$guarantor = executeSelect($sql_guarantor);
 
+		$sql_reference = "select refnm1 as name1, refmob1 as mobile1, refnm2 as name2, refmob2 as mobile2 from ".$dbPrefix.".tbmdeal where DealId=$dealid";
+		$reference = executeSelect($sql_reference);
+
 		//$sql_assignment = "select fr.mm as month,fr.yy as year,fr.CallerId as caller_empid,e1.name as caller_name,e1.mobile as caller_phone,fr.SRAId as sra_id,e.name as sra_name,e.Mobile as sra_phone from ".$dbPrefix_curr.".tbxfieldrcvry fr join ".$dbPrefix.".tbmemployee e join ".$dbPrefix.".tbmemployee e1 on fr.SRAId = e.id and fr.CallerId = e1.id where fr.DealId=$dealid";
 
 		$sql_assignment = "select fr.mm as month,fr.yy as year,fr.CallerId as caller_empid,e1.name as caller_name,e1.mobile as caller_phone,fr.SRAId as sra_id,e.name as sra_name,e.Mobile as sra_phone from ".$dbPrefix_curr.".tbxfieldrcvry fr join ".$dbPrefix.".tbmemployee e join ".$dbPrefix.".tbmemployee e1 on fr.SRAId = e.oldid and fr.CallerId = e1.portalid where fr.DealId=$dealid limit 4"; //AND fr.mm = MONTH(CURDATE())";
@@ -1362,22 +1501,99 @@ function deal_details($deals){
 		$sql_dealcharges = "SELECT dctyp as type,round(ChrgsApplied-ChrgsRcvd) as amount FROM ".$dbPrefix.".tbmdealchrgs WHERE DealId=$dealid AND DcTyp NOT IN (101,102,111) AND ChrgsApplied > ChrgsRcvd GROUP BY Dctyp";
 		$dealcharges = executeSelect($sql_dealcharges);
 
-		$sql_bounce = "select concat(count(case when status=-1 then 1 end),'/',count(depositdt)) as bounced from ".$dbPrefix.".tbmpaytypedtl where active=2 and depositdt IS NOT NULL and dealid = $dealid";
-		$bounce = executeSingleSelect($sql_bounce);
+		$sql_paytype = "SELECT case paytype WHEN 1 THEN 'PDC' WHEN 2 THEN 'ECS' When 3 THEN 'NACH' ELSE 'Nothing' End as type, case ApprvFlg WHEN 0 THEN 'Pending' WHEN 1 THEN 'Approved' WHEN 2 THEN 'Rejected' End as status FROM $dbPrefix.tbmpaytype p LEFT JOIN $dbPrefix_curr.tbxinstrumentrcvry r ON p.dealid = r.dealid AND mm = MONTH(NOW()) WHERE p.dealid =  $dealid ORDER BY paytype DESC LIMIT 0,1 ";
+		$paytype = executeSelect($sql_paytype);
+		$type = null;
+		$status = null;
+		if($paytype['row_count'] > 0){
+			$type = $paytype['result'][0]['type'];
+			$status = $paytype['result'][0]['status'];
+		}
+
+		$sql_paymenttype = "SELECT CASE paytype WHEN 1 THEN 'PDC' WHEN 2 THEN 'ECS' WHEN 3 THEN 'NACH' ELSE 'Nothing' END AS type,
+		case ApprvFlg WHEN 0 THEN 'Pending' WHEN 1 THEN 'Approved' WHEN 2 THEN 'Rejected' End as status, ApprvFlg AS approved,
+		DrownOn,Place as Branch, UMRN, TotAmt AS amt, Remark, ResponceDt AS dt, pendingpdc, requiredpdc
+		FROM $dbPrefix.tbmpaytype p
+		LEFT JOIN $dbPrefix_curr.tbxinstrumentrcvry r ON p.dealid = r.dealid AND mm = MONTH(NOW())
+		WHERE p.dealid =  '$dealid' ORDER BY paytype DESC LIMIT 0,1";
+		$paymenttype = executeSelect($sql_paymenttype);
+
+
+		//$sql_bounce = "select concat(count(case when status=-1 then 1 end),'/',count(depositdt)) as bounced from ".$dbPrefix.".tbmpaytypedtl where active=2 and depositdt IS NOT NULL and dealid = $dealid";
+		//$bounce = executeSingleSelect($sql_bounce);
+
+		$bounce = bounced($dealid,$deal['hpdt']);
 
 		$sql_seized = "select count(dealid)as seized from ".$dbPrefix_curr.".tbxvhclsz where dealid=$dealid";
 		$seized = executeSingleSelect($sql_seized);
 
+		$forclosureamt="";
+		$fcloseamt = getForeclosureAmount($dealid);
+		if($fcloseamt == -1){
+			$forclosureamt = "Error";
+		}
+		else if($fcloseamt == -2){
+			$forclosureamt = "Deal Closed";
+		}
+		else if($fcloseamt == -3){
+			$forclosureamt = "Foreclosure not allowed before 12 months";
+		}
+		else if($fcloseamt == -4){
+			$forclosureamt = "Can not calculate";
+		}
+		else{
+			$forclosureamt = strval($fcloseamt);
+		}
+
 		$deals['result'][$i]['bounce'] = $bounce;
 		$deals['result'][$i]['seized'] = $seized;
+		$deals['result'][$i]['forclosureamt'] = $forclosureamt;
+		$deals['result'][$i]['type'] = $type;
+		$deals['result'][$i]['status'] = $status;
+		$deals['result'][$i]['paytype'] = $paymenttype;
 		$deals['result'][$i]['phonenumbers'] = $phones;
 		$deals['result'][$i]['guarantor'] = $guarantor;
+		$deals['result'][$i]['reference'] = $reference;
 		$deals['result'][$i]['dealcharges'] = $dealcharges;
 		$deals['result'][$i]['assignment'] = $assignment;
 		$deals['result'][$i]['ledger'] = $ledgers;
 		$deals['result'][$i]['logs'] = $logs;
 	}
 	return $deals;
+}
+
+
+
+function bounced($dealid,$hpdt){
+	$dbPrefix = $_SESSION['DB_PREFIX'];
+
+
+	$hp_mm = date("n", strtotime($hpdt));
+	$hp_yy= date("Y", strtotime($hpdt));
+	$startyy = ($hp_mm < 4 ? ($hp_yy-1) : $hp_yy);
+
+	$fy_arr = array();
+	$mm = date('m'); $yy = date('Y'); $i = date('Y');
+	if($mm < 4) $i--;
+	for($i; $i >= $startyy; $i--){
+		$fy_arr[] = array(substr($i,-2)."-".substr($i+1,-2),$i,$i+1);
+	}
+
+	$q_bounce ="SELECT CONCAT(SUM(bounce),'/', SUM(dpst)) AS bounced FROM (";
+	foreach($fy_arr AS $i=> $fy1){
+		$db = "$dbPrefix".$fy1[1]."".str_pad($fy1[2]-2000, 2, '0', STR_PAD_LEFT);
+		$d = $fy1[1];
+		$q_bounce .="
+		SELECT COUNT(CASE WHEN cbflg=-1 THEN 1 END) AS bounce, COUNT(rcptid) AS dpst  FROM $db.`tbxdealrcpt`
+		WHERE dealid = $dealid AND rcptpaymode IN (2,6,7) AND cclflg = 0
+		UNION";
+	}
+	$q_bounce = RTRIM($q_bounce, "UNION");
+	$q_bounce .=") b";
+
+	$bounce = executeSingleSelect($q_bounce);
+
+	return $bounce;
 }
 
 
@@ -1416,7 +1632,6 @@ function foreclosure($dealid){
 	return round($foreclosure_amt);
 
 
-
   /*
 	if($od == 0 && $other == 0){
 		return round($foreclosure_amt);
@@ -1432,6 +1647,114 @@ function foreclosure($dealid){
 	}
   */
 }
+
+
+
+
+
+function getForeclosureAmount($dealid, $withAllCharges = false, $adminLogin = false){
+    // Returns
+    //-2 if deal is closed,
+    //-1 if Error
+    //-3 If foreclosure Not allowed.
+    //-4 Can not calculate
+    // Amount if deal is live and allowed
+
+    $fc_amt = -1;
+
+    $dbPrefix = $_SESSION['DB_PREFIX'];
+    $q = "SELECT d.dealid, d.closedt, d.hpexpdt, d.financeamt, d.period, d.dealsts, d.hpdt, period_diff(date_format(now(), '%Y%m'), date_format(startduedt, '%Y%m')) as elapsed_period, sum(round(dl.DueAmt+dl.CollectionChrgs)) as due FROM $dbPrefix.tbmdeal d JOIN $dbPrefix.tbmduelist dl ON d.dealid = $dealid AND d.cancleflg = 0 AND dl.dealid = $dealid AND dl.duedt <= curdate()";
+
+    $t1 = executeSelect($q);
+    if($t1['row_count'] <= 0){
+        return;
+    }
+    $deal = $t1['result'][0];
+    if($deal['dealsts'] == 3){
+        return -2;
+    }
+    $period = $deal['period'];
+    $elapsed_period = $deal['elapsed_period'];
+    $dueListSum = $deal['due'];
+
+    $q3 ="SELECT SUM(receiptamt) as rcptamt FROM (";
+    foreach($_SESSION['FY_ARR'] as $i=> $fy1){
+        $db = "$dbPrefix".$fy1[1]."".str_pad($fy1[2]-2000, 2, '0', STR_PAD_LEFT);
+        $d = $fy1[1];
+        $q3 .="
+        SELECT $d as yy, SUM(acxnamt) as receiptamt FROM $db.tbxdealrcpt r join $db.tbxacvoucher v
+        ON r.dealid = $dealid and r.rcptno = v.rcptno AND cbflg = 0 AND cclflg = 0 AND v.xreftyp = 1100 and v.acvchtyp = 4 AND v.acxnsrno = 0 and v.reconind = 1
+        UNION";
+    }
+    $q3 = rtrim($q3, "UNION");
+    $q3 .=") vouchers";
+
+    $pending_amount = executeSingleSelect($q3);
+
+    $q17 = "select sum(dueamt+collectionchrgs) as hpod, sum(collectionchrgs) as cc, sum(finchrg) as fc from ".$_SESSION['DB_PREFIX'].".tbmduelist where duedt > NOW() and dealid = $dealid group by dealid";
+
+    $q11 = "SELECT
+    SUM(CASE WHEN dctyp IN (101,102,111) THEN chrgsrcvd ELSE 0 END) AS rEMI,
+    SUM(CASE WHEN dctyp IN (101,102,111) THEN chrgsapplied - chrgsrcvd ELSE 0 END) AS pEMI,
+    SUM(CASE WHEN dctyp NOT IN (101,102,111) THEN chrgsapplied - chrgsrcvd ELSE 0 END) AS AllOtherCharges
+    FROM tbmdealchrgs WHERE dealid = $dealid";
+
+    if($period > $elapsed_period){//Deal is not expired
+        $t1 = executeSelect($q17);    if($t1['row_count'] > 0){$premature = $t1['result'];}
+        $t1 = executeSelect($q11); if($t1['row_count'] > 0){$dealcharges = $t1['result'][0];}
+        $hpod = 0; $cc = 0; $fc = 0;
+        if(isset($premature)){
+            $hpod = $premature[0]['hpod']; $cc = $premature[0]['cc']; $fc = $premature[0]['fc'];
+        }
+        $fc_penalty = 8; //Percentage
+
+        $pending_period = $period - $elapsed_period;
+        if($pending_period > 0 && $pending_period <= 8){
+            $fc_amt = $hpod + $pending_amount;
+            $fc_bal = $dueListSum - $dealcharges['rEMI'];
+            $fc_amt += $fc_bal;
+        }
+        else{
+            if($elapsed_period <= 11){
+                $fc_penalty = 8;
+                if(!$adminLogin)
+                    return -3; //Foreclosure not allowed
+            }
+//            else if($elapsed_period > 6 and $elapsed_period <= 12){
+//                $fc_penalty = 6;
+//            }
+            else{
+                $fc_penalty = 5;
+            }
+            $fc_amt = (1+$fc_penalty/100) * $hpod - $cc - $fc + $pending_amount;
+            if($fc_amt < 0){
+                $fc_amt = -4; //Foreclosure is -ve and cant be calculated
+                return $fc_amt;
+            }
+            $fc_bal = (1+$fc_penalty/100) * ($dueListSum - $dealcharges['rEMI']);
+            $fc_amt += $fc_bal;
+        }
+        if($withAllCharges){
+            $fc_amt += $dealcharges['AllOtherCharges'];
+        }
+    }
+
+   return $fc_amt;
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -1556,7 +1879,7 @@ function getCustomerDealDetails($dealid) {
     $dbPrefix_curr = $_SESSION['DB_PREFIX_CURR'];
     $dbPrefix_last = $_SESSION['DB_PREFIX_LAST'];
 
-	$sql = "select d.dealid as deal_id, d.dealno as deal_no,case when d.dealsts = 1 then 'Active' when d.dealsts = 2 then 'Draft' when d.dealsts = 3 then 'Closed' end as deal_status,round(d.financeamt) as loan_amt,(case when d.paytype=1 then 'PDC' when d.paytype=2 then 'ECS' when d.paytype=3 then 'Direct Debit' end) as payment_mode,tcase(concat(dv.make, ' ', dv.model, ' ',dv.modelyy)) as vehicle_model, dv.VhclColour as vehicle_color, dv.Chasis as vehicle_chasis_no, dv.EngineNo as vehicle_engine_no, dv.RTORegNo as vehicle_rto_reg_no,
+	$sql = "select d.dealid as deal_id, d.dealno as deal_no,case when d.dealsts = 1 then 'Active' when d.dealsts = 2 then 'Draft' when d.dealsts = 3 then 'Closed' end as deal_status,round(d.financeamt) as loan_amt,(case when d.paytype=1 then 'PDC' when d.paytype=2 then 'ECS' when d.paytype=3 then 'NACH' end) as payment_mode,tcase(concat(dv.make, ' ', dv.model, ' ',dv.modelyy)) as vehicle_model, dv.VhclColour as vehicle_color, dv.Chasis as vehicle_chasis_no, dv.EngineNo as vehicle_engine_no, dv.RTORegNo as vehicle_rto_reg_no,
 	DATE_FORMAT(d.hpdt, '%d-%m-%Y') as hpdt,DATE_FORMAT(d.startduedt, '%d-%b-%y') as emi_startdt,DATE_FORMAT(d.hpexpdt, '%d-%b-%y') as emi_enddt,d.period as emi_tenure,round(ps.MthlyAmt+ps.CollectionChrgs) as emi_amt,tcase(b.BrkrNm) as dealer_name
 	FROM ".$dbPrefix.".tbmdeal d
 	join ".$dbPrefix.".tbmdealvehicle dv on d.dealid=dv.dealid and d.dealid = $dealid
@@ -1740,6 +2063,9 @@ function getUnreconcileDepositEntry($posid){
     if($unreconcileentry['row_count']>0){
         $response["success"] = 1;
     }
+    else if($unreconcileentry['row_count']==0){
+	   	$response["success"] = 1;
+    }
     else{
         $response = error_code(1049);
         echo json_encode($response);
@@ -1762,7 +2088,7 @@ function getCashInHand($sraid){
     //$sql = "SELECT rcptamt FROM ".$dbPrefix.".tbmcashinhand WHERE empid = '$sraid'";
     //$result = executeSelect($sql);
 
-    $sql = "SELECT c.rcptamt, e.DpstAmtPercent, e.Walletlimit, d.printerid
+    $sql = "SELECT IFNULL(c.rcptamt,0) AS rcptamt, e.DpstAmtPercent, e.Walletlimit, d.printerid
     FROM ".$dbPrefix.".tbmemployee e
     LEFT JOIN ".$dbPrefix.".tbmdevices d ON e.id = d.empid
     LEFT JOIN ".$dbPrefix.".tbmcashinhand c ON c.empid = e.oldid  AND e.active=2 WHERE e.Oldid = '$sraid'";
@@ -1912,7 +2238,7 @@ function post_DepositEntry(){
 		$jrnlno = $jrno;
 	}
 
-	$sql = "INSERT INTO ".$dbPrefix_curr.".tbxdealpmntjrnl (JrnlNo,TranNo,POSId,TranDate,BankId,BankAcId,BranchId,BranchCode,Amount,TranTime,UsedLimit) VALUES ('$jrnlno', '$tranno', '$posid', '$trandate', '$bankid', '$bankacid', '$branchid', '$branchcode', '$amount', '$trantime', '$usedlimit')";
+	$sql = "INSERT INTO ".$dbPrefix_curr.".tbxdealpmntjrnl (JrnlNo,TranNo,POSId,TranDate,BankId,BankAcId,BranchId,BranchCode,Amount,TranTime,UsedLimit) VALUES ('$jrnlno', '$tranno', '$posid', NOW(), '$bankid', '$bankacid', '$branchid', '$branchcode', '$amount', CURTIME(), '$usedlimit')";
 	$lastid = executeInsert($sql);
 
 	$response = array();
@@ -1948,27 +2274,210 @@ function post_DepositEntry(){
 
 
 
-function verifyProposal($proposalno){
-	$dbPrefix = $_SESSION['DB_PREFIX'];
-	$dbPrefix_curr = $_SESSION['DB_PREFIX_CURR'];
 
-	//$sql_verifyproposal = "";
-	//$verifyproposal = executeSelect($sql_verifyproposal);
+function proposalCriteria($proposalno){
+    $dbPrefix = $_SESSION['DB_PREFIX'];
+    $dbPrefix_curr = $_SESSION['DB_PREFIX_CURR'];
 
-	$response = array();
-	if($verifyproposal['row_count']>0){
-		$response["success"] = 1;
-	}
-	else{
-		$response = error_code(1052);
-		echo json_encode($response);
-		return;
-	}
-	$response["verifyproposal"] = $verifyproposal;
-	echo json_encode($response);
+    /**************************************************************************************
+    ***************** LOAN ELIGIBILITY CRITERIA CHECKING ********************************
+    1. Exposure Min and Max Amount. Min 15K, Max 75 or 2L depending on NIP vs IP
+    2. Age - Min & Max depending on Proffesion Type (Sal vs Self Emp)
+    3. Net Tenure - Min & Max depding on net Finance Amount (Disbursment + PF) -  (Above 1L and below 1L)
+    4. Loksuvidha Flat ROI - Depending on ProfessionType (Sal Only), Salary Class (Gov vs Non-Gov) and Net Salary Amount
+    5. Loan Amount Eligiblity Calcuation - Min of folllwings
+       a. Exposure Max Amount. Max 75 or 2L depending on NIP vs IP
+       b. NIP vs IP - Check Loan Multiplier Grid
+       c. LTV - Loksuvidha Norms on asset type and manufacture
+    6. Stability in Employment or Business - 6months vs 1 year - Not checking currently because data is captured in later stages.
+    **************************************************************************************/
 
+    $sql_verifyproposal = "select dob,Period,GrossPeriod,AdvancePeriod,AnnualIncome,RoI,ProfessionType,FinanceAmt,AdvanceEMI,StartDueDt,proposaldt,IncomeProof,IRR,VehManufacture,
+    VehCategory,OnRoadPrice,DATE_ADD(startDuedt,INTERVAL period -1 MONTH) as expiarydt,Salarytype from ".$dbPrefix.".tbmproposal WHERE proposalNo = '$proposalno' ;";
+
+    $verifyproposal = executeSelect($sql_verifyproposal);
+
+    $response = array();
+
+    if($verifyproposal['row_count']>0){
+        $proposal = $verifyproposal['result'][0];
+
+        $i = 0;
+        $dob = strtotime($proposal['dob']);
+        $ProfessionType = $proposal['ProfessionType'];
+        $Period = $proposal['Period'];
+        $GrossPeriod = $proposal['GrossPeriod'];
+        $AdvancePeriod = $proposal['AdvancePeriod'];
+        $AnnualIncome = $proposal['AnnualIncome'];
+        $roi = $proposal['RoI'];
+        $Salarytype = $proposal['Salarytype'];
+        $MonthlyIncome = $AnnualIncome / 12;
+        $StartDueDt = strtotime($proposal['StartDueDt']);
+        $expiarydt = strtotime($proposal['expiarydt']);
+        $proposaldt =  strtotime($proposal['proposaldt']);
+        $FinanceAmt = $proposal['FinanceAmt'];
+        $AdvanceEMI = $proposal['AdvanceEMI'];
+        $IncomeProof=$proposal['IncomeProof'];
+        $IRR=$proposal['IRR'];
+        $VehManufacture=$proposal['VehManufacture'];
+        $VehCategory=$proposal['VehCategory'];
+        $OnRoadPrice=$proposal['OnRoadPrice'];
+
+        $NetPeriod= $GrossPeriod - $AdvancePeriod;
+        $NetFinance= $FinanceAmt - $AdvanceEMI;
+
+        $ltvcolumnnm = 'with'. ($IncomeProof != 1 ? 'out' :''). 'income_'.tolower($VehCategory);
+
+        $sql_ltv = "SELECT $ltvcolumnnm FROM ".$dbPrefix.".tbmmanufacturerltv AS ltv JOIN ".$dbPrefix.".tbmmanufacturer AS m ON ltv.manufactureid=m.pkid AND ltv.BankId=9 AND m.shortnm = '".$VehManufacture."';";
+
+        $ltv = executeSingleSelect($sql_ltv);
+        $ltvAmt= $OnRoadPrice *$ltv/100;
+
+        $Asonage = date('Y',$proposaldt) - date('Y',$dob);
+        $Expireage = date('Y',$expiarydt) - date('Y',$dob);
+
+    /**************************************************************************************
+    1. Exposure Min and Max Amount. Min 15K, Max 75 or 2L depending on NIP vs IP
+    **************************************************************************************/
+        if($IncomeProof == 1) // IP =1 , NIP=2
+        {
+            if($NetFinance < 15000 || $NetFinance > 200000 )
+            {
+                array_push($response,'Finance amount does not match with policy.');
+            }
+        }
+        else
+           {
+            if($NetFinance < 15000 || $NetFinance > 75000 )
+            {
+                array_push($response,'Finance amount does not match with policy.');
+            }
+        }
+
+    /**************************************************************************************
+    2. Age - Min & Max depending on Proffesion Type (Sal vs Self Emp)
+    **************************************************************************************/
+        if($ProfessionType == 1)
+        {
+            if($Asonage < 18 || $Expireage > 65 )
+            {
+                array_push($response,'Customer age does not match with salaried policy.');
+            }
+        }
+        else if($ProfessionType == 2)
+        {
+            if($Asonage < 21 || $Expireage > 65)
+            {
+                array_push($response,'Customer age does not match with self employed policy.');
+            }
+        }
+
+    /**************************************************************************************
+    3. Net Tenure - Min & Max depding on net Finance Amount (Disbursment + PF) -  (Above 1L and below 1L)
+    **************************************************************************************/
+        if($NetFinance != 0)
+        {
+            if($NetFinance > 100000 )
+            {
+                if($NetPeriod < 12  || $NetPeriod > 48  )
+                {
+                    array_push($response,'Period does not match with annual income more than 1,00,000 Rs policy.');
+                }
+            }
+            else
+            {
+                if($NetPeriod < 12  || $NetPeriod > 36  )
+                {
+                    array_push($response,'Period does not match with annual income less than 1,00,000 Rs policy.');
+                }
+            }
+        }
+
+    /**************************************************************************************
+    4. Loksuvidha Flat ROI - Depending on ProfessionType (Sal Only), Salary Class (Gov vs Non-Gov) and Net Salary Amount
+    **************************************************************************************/
+        if($ProfessionType == 1 && $Salarytype == 1 && $MonthlyIncome >= 15000)
+        {
+            if($NetPeriod <= 23 && $roi < 13.9 )
+            {
+                array_push($response,'ROI does not match with salary more than 15,000 for government employee.');
+            }
+            if($NetPeriod >= 24 && $roi < 12.4 )
+             {
+                array_push($response,'ROI does not match with salary more than 15,000 for government employee.');
+            }
+        }
+        else if($ProfessionType == 1 && $Salarytype == 1 && $MonthlyIncome < 15000)
+        {
+            if( $NetPeriod <= 23 && $roi < 13.9 )
+            {
+                array_push($response,'ROI does not match with salary less than 15,000 for government employee.');
+            }
+            if($NetPeriod >= 24  && $roi < 12.96 )
+            {
+                array_push($response,'ROI does not match with salary less than 15,000 for government employee.');
+            }
+        }
+        else if($Salarytype == 2)
+        {
+            if($roi < 13.9 )
+            {
+                array_push($response,'ROI does not match with normal employee.');
+            }
+
+        }
+
+
+    /**************************************************************************************
+    5. Loan Amount Eligiblity Calcuation - Min of folllwings
+       a. Exposure Max Amount. Max 75 or 2L depending on NIP vs IP
+       b. NIP vs IP - Check Loan Multiplier Grid
+       c. LTV - Loksuvidha Norms on asset type and manufacture
+    **************************************************************************************/
+        if($MonthlyIncome < 8000)
+        {
+            array_push($response,'Loan Amount does not match with less than 8000 p.m income policy.');
+        }
+        else
+        {
+            if($IncomeProof == 1 )  //Ip=1 NIP=2
+            {
+                if(min($ltvAmt,$MonthlyIncome * ($MonthlyIncome <= 20000 ? 4 :7),200000) < $NetFinance )
+                {
+                    array_push($response,'Loan Amount does not match with income profile.');
+                    $response["success"] = 0;
+                }
+
+            }
+            else if($IncomeProof == 2 )
+            {
+                if($NetFinance > min($ltvAmt,75000))
+                {
+                    array_push($response,'Loan Amount does not match with income profile.');
+                }
+            }
+        }
+
+        /**************************************************************************************
+        6. Stability in Employment or Business - 6months vs 1 year - Not checking currently because data is captured in later stages.
+        **************************************************************************************/
+        //if($ProfessionType == 1 && Biz_Length < 6)
+        //{
+        //    array_push($response,'Stability in Employment or Business does not match with policy.');
+        //}
+        //else if($ProfessionType == 1 && Biz_Length < 12)
+        //{
+        //    array_push($response,'Stability in Employment or Business does not match with policy.');
+        //}
+
+    }
+    else{
+        $response = error_code(1052);
+        echo json_encode($response);
+        return;
+    }
+    echo json_encode($response);
 }
-
 
 
 
@@ -2234,9 +2743,11 @@ function verifyOtp($mobileno,$otp){
 
 function uploadDocuments(){
 	$dbPrefix = $_SESSION['DB_PREFIX'];
+	$path = $_SESSION['IMG_UPLOAD_PATH']."ProposalFiles/";
 
 	//$path = "D:/inetpub/wwwroot/in.loksuvidha.com/content/ProposalFiles/";
-	$path = "D:/inetpub/wwwroot/dev.loksuvidha.local/content/ProposalFiles/";
+	//$path = "D:/inetpub/wwwroot/dev.loksuvidha.local/content/ProposalFiles/";
+
 	$response = array();
 	if (isset($_FILES['image']['name'])) {
 		$filename = isset($_POST['filename']) ? $_POST['filename'] : '';

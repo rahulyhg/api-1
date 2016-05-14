@@ -52,5 +52,6 @@ $error_codes = array(
 1049 => "No Unreconcile Deposit Entry Found",
 1050 => "No Cash In Hand Record Found",
 1051 => "Failed to post Deposit Entry",
-1052 => "Failed to verify Proposal");
+1052 => "Failed to verify Proposal",
+1053 => "Failed to update mobile number");
 ?>

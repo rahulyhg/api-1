@@ -13,7 +13,15 @@ $_SESSION['ROWS_IN_TABLE'] = 30;
 $_SESSION['API_ROW_LIMIT'] = 15;
 $_SESSION['MOBILE_ROWS_IN_TABLE'] = 15;
 
-$_SESSION['PAY_MODE'] = array(0=>'Unknown', 1=> 'Cash', 2=> 'PDC',3=> 'Other', 4=> '4', 5=>'5', 6=> 'ECS',7=> '7');
+$_SESSION['IMG_UPLOAD_PATH'] = "D:/inetpub/wwwroot/dev.loksuvidha.local/content/";
+
+$_SESSION['FY_ARR'] = array();
+$mm = date('m');; $yy = date('Y');
+$i = date('Y'); if($mm < 4) $i--;
+for(; $i >= 2008; $i--){
+	$_SESSION['FY_ARR'][] = array(substr($i,-2)."-".substr($i+1,-2),$i,$i+1);
+}
+
 
 function connect(){
 	return mysqli_connect($_SESSION['DB_HOST'],$_SESSION['DB_USER'],$_SESSION['DB_PASSWORD'], $_SESSION['DB_PREFIX']);
