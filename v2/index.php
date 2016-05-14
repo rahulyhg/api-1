@@ -2326,7 +2326,7 @@ function proposalCriteria($proposalno){
         $NetPeriod= $GrossPeriod - $AdvancePeriod;
         $NetFinance= $FinanceAmt - $AdvanceEMI;
 
-        $ltvcolumnnm = 'with'. ($IncomeProof != 1 ? 'out' :''). 'income_'.tolower($VehCategory);
+        $ltvcolumnnm = 'with'. ($IncomeProof != 1 ? 'out' :''). 'income_'.strtolower($VehCategory);
 
         $sql_ltv = "SELECT $ltvcolumnnm FROM ".$dbPrefix.".tbmmanufacturerltv AS ltv JOIN ".$dbPrefix.".tbmmanufacturer AS m ON ltv.manufactureid=m.pkid AND ltv.BankId=9 AND m.shortnm = '".$VehManufacture."';";
 
